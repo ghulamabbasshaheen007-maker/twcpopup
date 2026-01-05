@@ -1,5 +1,5 @@
 
-console.log ("script is working 30")
+console.log ("script is working 35")
 
 
   var TARGET_SELECTOR = "#create-post__trigger";
