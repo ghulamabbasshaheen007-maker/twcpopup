@@ -1,7 +1,7 @@
 
 console.log ("script is working 30")
 
-(function () {
+
   var TARGET_SELECTOR = "#create-post__trigger";
   var CUSTOM_FIELD_ID = "pMR80x1BrnpsGE0ULX6e";
   var WATCHED_VALUE = "Watched";
@@ -635,4 +635,4 @@ console.log ("script is working 30")
 
   // Start immediately
   waitForTargetThenTriggerOnViewport();
-})();
+
