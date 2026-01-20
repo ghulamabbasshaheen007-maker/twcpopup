@@ -1,406 +1,736 @@
-console.log ("script is working 37")
+console.log ("script is working 40")
 
-function injectStyles() {
-  if (document.getElementById("wisp-twc-styles")) return;
 
-  // FontAwesome (optional). Loads once.
-  if (!document.getElementById("wisp-fa-64")) {
-    var fa = document.createElement("link");
-    fa.id = "wisp-fa-64";
-    fa.rel = "stylesheet";
-    fa.href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css";
-    (document.head || document.documentElement).appendChild(fa);
+
+  var TARGET_SELECTOR = "#create-post__trigger";
+  var CUSTOM_FIELD_ID = "pMR80x1BrnpsGE0ULX6e";
+  var WATCHED_VALUE = "Watched";
+
+  var API_BASE = "https://services.leadconnectorhq.com";
+  var API_VERSION = "2021-07-28";
+  var BEARER_TOKEN = "pit-7a2aa063-5698-4490-a39c-d167acbeb4e4";
+
+  // Assets from your page
+  var BG_IMAGE_URL =
+    "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/694b465f147f516b70fc6e85.jpg";
+  var VIDEO_URLS = [
+    "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/694b3061aaebe869e7136502.mp4",
+    "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/694b30612dd46f53e6499569.mp4",
+    "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/694b30617d382a58543678a0.mp4",
+    "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/694b30992442e05ab9f715bb.mp4",
+    "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/694b30611dea1005fea2713a.mp4"
+  ];
+
+  var fired = false;
+  var activeUid = null;
+
+  function log(msg) {
+    try {
+      console.log("[TUT]", msg);
+    } catch (err) {}
   }
 
-  var css = ""
-  + "#wisp-twc-popup{"
-  + "  --twc-gold:#d2b48c; --twc-gold-dark:#b89b74; --twc-gold-light:#e8d8c0;"
-  + "  --twc-black:#1a1a1a; --twc-white:#fff; --twc-gray:#f8f8f8; --twc-gray-dark:#e8e8e8;"
-  + "  --twc-text:#2c2c2c; --twc-text-light:#666;"
-  + "  --shadow:0 15px 35px rgba(0,0,0,.1),0 5px 15px rgba(0,0,0,.07);"
-  + "  --shadow-heavy:0 20px 50px rgba(0,0,0,.15),0 10px 25px rgba(0,0,0,.1);"
-  + "  --radius:18px; --radius-sm:14px; --radius-lg:24px;"
-  + "  -webkit-tap-highlight-color:transparent;"
-  + "}"
-  + "#wisp-twc-popup, #wisp-twc-popup *{box-sizing:border-box; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Arial,sans-serif;}"
-  + "#wisp-twc-popup{position:fixed; inset:0; z-index:999999; display:flex; align-items:center; justify-content:center;"
-  + "  padding: max(10px, env(safe-area-inset-top)) max(15px, env(safe-area-inset-right)) max(15px, env(safe-area-inset-bottom)) max(15px, env(safe-area-inset-left));"
-  + "}"
-  + "#wisp-twc-popup .wisp-backdrop{position:absolute; inset:0; background:rgba(0,0,0,.65); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);}"
-  + "#wisp-twc-popup .bg-overlay{position:absolute; inset:0; background-image:url('https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/694b465f147f516b70fc6e85.jpg');"
-  + "  background-size:cover; background-position:center; filter:brightness(.25) blur(6px); opacity:.9; transform:scale(1.02);"
-  + "}"
-  + "#wisp-twc-popup .wisp-shell{position:relative; z-index:2; width:min(1200px, 100%); height: min(90vh, 850px);"
-  + "  background: var(--twc-white); border-radius: var(--radius-lg); overflow:hidden; box-shadow: var(--shadow-heavy);"
-  + "  border: 1px solid rgba(210,180,140,.15); display:flex; flex-direction:column;"
-  + "}"
-  + "#wisp-twc-popup .wisp-close{position:absolute; top:12px; right:12px; width:40px; height:40px; border-radius:50%;"
-  + "  background: rgba(210,180,140,.18); border: 1px solid rgba(210,180,140,.30); color: var(--twc-gold-light);"
-  + "  cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:5;"
-  + "}"
-  + "#wisp-twc-popup .wisp-close:hover{background: rgba(210,180,140,.28); transform: rotate(90deg); transition: .25s ease;}"
-  + "#wisp-twc-popup #twc-tracker-widget{height:100%; width:100%;}"
+  // -----------------------------
+  // Auth / Contact helpers
+  // -----------------------------
+  function getUidFromLocalStorage() {
+    var prefix = "firebase:authUser:";
+    var i, k, raw, obj;
 
-  // ====== Below is (mostly) your CSS but scoped to the popup only ======
-  + "#wisp-twc-popup .twc-header{background:linear-gradient(135deg,var(--twc-black) 0%,#222 100%); color:#fff; padding:22px 35px;"
-  + " display:flex; justify-content:space-between; align-items:center; border-bottom:4px solid var(--twc-gold); flex-shrink:0; min-height:85px; position:relative; overflow:hidden;}"
-  + "#wisp-twc-popup .twc-header h2{font-size:1.5rem; font-weight:800; color:var(--twc-gold-light); letter-spacing:-.5px; display:flex; align-items:center; gap:12px; margin:0;}"
-  + "#wisp-twc-popup .twc-header h2:before{content:'🏆'; font-size:1.3rem;}"
-  + "#wisp-twc-popup .progress-container{min-width:200px; background:rgba(255,255,255,.05); padding:12px 16px; border-radius:12px; border:1px solid rgba(210,180,140,.2);}"
-  + "#wisp-twc-popup .progress-text{font-size:.9rem; margin-bottom:10px; display:flex; justify-content:space-between; font-weight:600; gap:20px;}"
-  + "#wisp-twc-popup .progress-text span:first-child{color:var(--twc-gold-light); opacity:.9;}"
-  + "#wisp-twc-popup .progress-text span:last-child{color:var(--twc-gold); font-weight:700;}"
-  + "#wisp-twc-popup .progress-bar-bg{width:100%; height:10px; background:rgba(255,255,255,.1); border-radius:6px; overflow:hidden; box-shadow:inset 0 1px 3px rgba(0,0,0,.3);}"
-  + "#wisp-twc-popup .progress-bar-fill{height:100%; background:linear-gradient(90deg,var(--twc-gold),#e0c090); width:0%; transition:width .8s cubic-bezier(.34,1.56,.64,1); border-radius:6px; box-shadow:0 0 15px rgba(210,180,140,.3);}"
-  + "#wisp-twc-popup .twc-main{display:flex; flex:1; overflow:hidden; min-height:0; background:linear-gradient(to right,#fff 0%,#fcfcfc 100%);}"
-  + "#wisp-twc-popup .twc-content{flex:1; padding:30px; overflow-y:auto; display:flex; flex-direction:column; min-height:0;}"
-  + "#wisp-twc-popup .content-header{margin-bottom:30px; padding-bottom:20px; border-bottom:2px solid var(--twc-gray-dark);}"
-  + "#wisp-twc-popup .content-header h1{font-size:1.8rem; margin:0 0 10px 0; font-weight:800; line-height:1.2; letter-spacing:-.5px; color:var(--twc-black);}"
-  + "#wisp-twc-popup .video-wrapper{width:100%; aspect-ratio:16/9; background:#000; border-radius:var(--radius-sm); overflow:hidden; margin-bottom:30px; position:relative; flex-shrink:0; box-shadow:0 10px 30px rgba(0,0,0,.2); border:1px solid rgba(0,0,0,.3);}"
-  + "#wisp-twc-popup .video-wrapper video{position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover;}"
-  + "#wisp-twc-popup .instruction-card{background:linear-gradient(to right,var(--twc-gray) 0%,#f0f0f0 100%); border-left:5px solid var(--twc-gold); padding:25px; border-radius:var(--radius-sm); margin-bottom:25px; box-shadow:0 5px 15px rgba(0,0,0,.05);}"
-  + "#wisp-twc-popup .twc-sidebar{width:380px; background:linear-gradient(to bottom,#fafafa 0%,#f5f5f5 100%); border-left:1px solid var(--twc-gray-dark); padding:30px; overflow-y:auto; min-height:0;}"
-  + "#wisp-twc-popup .twc-sidebar h4{font-size:.8rem; color:var(--twc-text-light); margin:0 0 20px 0; text-transform:uppercase; letter-spacing:1.5px; font-weight:700; padding-bottom:10px; position:relative;}"
-  + "#wisp-twc-popup .twc-sidebar h4:after{content:''; position:absolute; bottom:0; left:0; width:40px; height:2px; background:var(--twc-gold);}"
-  + "#wisp-twc-popup .step-card{padding:18px; background:#fff; border:1px solid var(--twc-gray-dark); border-radius:var(--radius-sm); margin-bottom:15px; cursor:pointer; display:flex; align-items:center; gap:15px; transition:all .3s cubic-bezier(.4,0,.2,1); position:relative; overflow:hidden;}"
-  + "#wisp-twc-popup .step-card:before{content:''; position:absolute; top:0; left:0; width:4px; height:100%; background:transparent; transition:all .3s cubic-bezier(.4,0,.2,1);}"
-  + "#wisp-twc-popup .step-card:hover{transform:translateY(-3px); box-shadow:0 8px 25px rgba(0,0,0,.1); border-color:var(--twc-gold-light);}"
-  + "#wisp-twc-popup .step-card:hover:before{background:var(--twc-gold);}"
-  + "#wisp-twc-popup .step-card.active{background:linear-gradient(135deg,var(--twc-black),#2a2a2a); color:#fff; border-color:var(--twc-gold); box-shadow:0 8px 25px rgba(0,0,0,.2);}"
-  + "#wisp-twc-popup .step-card.active:before{background:var(--twc-gold);}"
-  + "#wisp-twc-popup .step-num{width:36px; height:36px; border-radius:50%; background:var(--twc-gray); display:flex; align-items:center; justify-content:center; font-weight:800; flex-shrink:0; font-size:.9rem; color:var(--twc-text); transition:all .3s cubic-bezier(.4,0,.2,1);}"
-  + "#wisp-twc-popup .step-card:hover .step-num{background:var(--twc-gold-light);}"
-  + "#wisp-twc-popup .step-card.active .step-num{background:var(--twc-gold); color:var(--twc-black); transform:scale(1.1);}"
-  + "#wisp-twc-popup .step-title{font-size:1rem; font-weight:600; line-height:1.4;}"
-  + "#wisp-twc-popup .step-progress-container{position:relative; height:22px; background:rgba(0,0,0,.06); border-radius:12px; margin-top:12px; overflow:hidden; box-shadow:inset 0 1px 3px rgba(0,0,0,.1);}"
-  + "#wisp-twc-popup .step-progress-fill{height:100%; background:linear-gradient(90deg,var(--twc-gold),var(--twc-gold-dark)); width:0%; transition:width .6s cubic-bezier(.34,1.56,.64,1); border-radius:12px; box-shadow:0 2px 8px rgba(184,155,116,.3);}"
-  + "#wisp-twc-popup .step-progress-text{position:absolute; top:50%; left:12px; transform:translateY(-50%); font-size:.75rem; font-weight:700; color:var(--twc-black); white-space:nowrap;}"
-  + "#wisp-twc-popup .step-progress-text.inside-fill{left:0; width:100%; text-align:center;}"
-  + "#wisp-twc-popup .twc-footer{padding:20px 35px; background:linear-gradient(to right,#fafafa,#f5f5f5); border-top:1px solid var(--twc-gray-dark); display:flex; justify-content:space-between; flex-shrink:0; gap:10px;}"
-  + "#wisp-twc-popup .btn{padding:16px 28px; border-radius:var(--radius-sm); font-weight:700; cursor:pointer; border:none; font-size:.95rem; transition:all .3s cubic-bezier(.4,0,.2,1); min-width:140px;}"
-  + "#wisp-twc-popup .btn:disabled{opacity:.4; cursor:not-allowed;}"
-  + "#wisp-twc-popup .btn-prev{background:var(--twc-gray); color:var(--twc-text); border:1px solid var(--twc-gray-dark);}"
-  + "#wisp-twc-popup .btn-next{background:linear-gradient(135deg,var(--twc-gold),var(--twc-gold-dark)); color:var(--twc-black);}"
-  + "#wisp-twc-popup .btn-complete{background:linear-gradient(135deg,#27ae60,#219955); color:#fff;}"
+    try {
+      for (i = 0; i < localStorage.length; i++) {
+        k = localStorage.key(i);
+        if (!k || k.indexOf(prefix) !== 0) continue;
 
-  // Mobile optimizations (scoped)
-  + "@media (max-width: 900px){"
-  + "  #wisp-twc-popup .wisp-shell{height: min(85vh, 750px);}"
-  + "}"
-  + "@media (max-width: 768px){"
-  + "  #wisp-twc-popup .wisp-shell{height: min(85vh, 900px); min-height: 600px;}"
-  + "  #wisp-twc-popup .twc-main{flex-direction:column; overflow-y:auto;}"
-  + "  #wisp-twc-popup .twc-sidebar{width:100%; border-left:none; border-top:1px solid var(--twc-gray-dark); padding:20px 15px; max-height:35vh;}"
-  + "  #wisp-twc-popup .twc-content{padding:20px 15px; max-height:45vh;}"
-  + "  #wisp-twc-popup .twc-header{padding:15px 20px; min-height:70px; flex-direction:column; gap:12px; align-items:flex-start;}"
-  + "  #wisp-twc-popup .twc-header h2{font-size:1.1rem;}"
-  + "  #wisp-twc-popup .progress-container{min-width:100%; width:100%; padding:10px 12px;}"
-  + "  #wisp-twc-popup .content-header h1{font-size:1.3rem;}"
-  + "  #wisp-twc-popup .video-wrapper{margin-bottom:20px; max-height:30vh;}"
-  + "  #wisp-twc-popup .btn{padding:12px 15px; font-size:.85rem; min-width:110px; flex:1;}"
-  + "}"
-  + "@media (max-width: 390px){"
-  + "  #wisp-twc-popup .wisp-shell{height:min(85vh, 900px); border-radius:15px;}"
-  + "  #wisp-twc-popup .twc-header{padding:12px 15px; min-height:60px;}"
-  + "  #wisp-twc-popup .twc-header h2{font-size:.95rem;}"
-  + "  #wisp-twc-popup .twc-content{padding:15px 12px; max-height:45vh;}"
-  + "  #wisp-twc-popup .twc-sidebar{padding:15px 12px; max-height:30vh;}"
-  + "  #wisp-twc-popup .content-header h1{font-size:1.1rem;}"
-  + "  #wisp-twc-popup .btn{padding:10px 12px; font-size:.8rem;}"
-  + "}";
+        raw = localStorage.getItem(k);
+        if (!raw) continue;
 
-  var style = document.createElement("style");
-  style.id = "wisp-twc-styles";
-  style.type = "text/css";
-  style.appendChild(document.createTextNode(css));
-  (document.head || document.documentElement).appendChild(style);
-}
-
-function showPopup() {
-  if (document.getElementById("wisp-twc-popup")) return;
-
-  injectStyles();
-
-  var root = document.createElement("div");
-  root.id = "wisp-twc-popup";
-
-  // Backdrop + blurred bg image layer
-  var bg = document.createElement("div");
-  bg.className = "bg-overlay";
-  var backdrop = document.createElement("div");
-  backdrop.className = "wisp-backdrop";
-
-  // Modal shell
-  var shell = document.createElement("div");
-  shell.className = "wisp-shell";
-
-  // Close button
-  var closeBtn = document.createElement("button");
-  closeBtn.className = "wisp-close";
-  closeBtn.type = "button";
-  closeBtn.innerHTML = '<i class="fas fa-times"></i>';
-
-  // Container required by tracker render()
-  var trackerMount = document.createElement("div");
-  trackerMount.id = "twc-tracker-widget";
-
-  shell.appendChild(closeBtn);
-  shell.appendChild(trackerMount);
-
-  root.appendChild(bg);
-  root.appendChild(backdrop);
-  root.appendChild(shell);
-
-  // Close behavior
-  function teardown() {
-    try { root.parentNode.removeChild(root); } catch (e2) {}
-  }
-  closeBtn.addEventListener("click", teardown);
-  backdrop.addEventListener("click", teardown);
-
-  document.body.appendChild(root);
-
-  // Initialize tracker inside this popup
-  WISP_TWC_initTracker();
-}
-
-/**
- * Minimal ES5 port of your tracker logic (scoped to the popup).
- * Stores progress in localStorage (same keys you used).
- */
-function WISP_TWC_initTracker() {
-  // Prevent duplicate init
-  if (window.WISP_TWC_tracker && window.WISP_TWC_tracker.__inited) {
-    return;
-  }
-
-  // iOS double-tap zoom prevention (scoped, safe)
-  (function () {
-    var lastTouchEnd = 0;
-    document.addEventListener("touchend", function (event) {
-      var now = new Date().getTime();
-      if (now - lastTouchEnd <= 300) {
-        try { event.preventDefault(); } catch (e1) {}
+        try {
+          obj = JSON.parse(raw);
+          if (obj && obj.uid) return String(obj.uid).trim();
+        } catch (parseErr) {}
       }
-      lastTouchEnd = now;
-    }, false);
-    document.addEventListener("touchstart", function(){}, { passive: true });
-  })();
+    } catch (storageErr) {}
 
-  
-    this.__inited = true;
-    this.currentStep = 1;
-    this.totalSteps = 7;
-
-    var savedProgress;
-    try { savedProgress = JSON.parse(localStorage.getItem("twcVideoProgress") || "{}"); } catch (e) { savedProgress = {}; }
-    this.videoProgress = savedProgress;
-
-    this.completedSteps = {};
-    var savedSteps;
-    try { savedSteps = JSON.parse(localStorage.getItem("twcCompletedSteps") || "[]"); } catch (e2) { savedSteps = []; }
-    for (var i = 0; i < savedSteps.length; i++) this.completedSteps[String(savedSteps[i])] = true;
-
-    this.steps = [
-      { title: "Introduction & Quick Start", video: "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ec82b156e0a73e0ee9321.mp4", hasVideo: true },
-      { title: "Your Investment", video: "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ec82ec7f17f7304d24b48.mp4", hasVideo: true },
-      { title: "Your First 48 Hours", video: "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ecd64eecbfa6d734ad1da.mp4", hasVideo: true },
-      { title: "TWC Community & Training", video: "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ecd70d4fb906bf95c4d1a.mp4", hasVideo: true },
-      { title: "Your Role VS Our Role", video: "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ed3268ec5c94bb3d29f3a.mp4", hasVideo: true },
-      { title: "Next Steps", video: "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ed326acaab06b41a46e1e.mp4", hasVideo: true },
-      { title: "Start Here", video: "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696fd50572b8e1ce031c6edc.mp4", hasVideo: true }
-    ];
-
-    this.initializeProgress();
-    this.render();
+    return null;
   }
 
-  Tracker.prototype.initializeProgress = function () {
-    for (var i = 1; i <= this.totalSteps; i++) {
-      if (!this.videoProgress[i]) this.videoProgress[i] = { progress: 0 };
-      if (typeof this.videoProgress[i].progress !== "number") this.videoProgress[i].progress = 0;
-    }
-  };
+  function getContact(uid) {
+    return fetch(API_BASE + "/contacts/" + encodeURIComponent(uid), {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Version: API_VERSION,
+        Authorization: "Bearer " + BEARER_TOKEN
+      }
+    }).then(function (res) {
+      if (!res.ok) {
+        return res.text().then(function (t) {
+          throw new Error(
+            "GET failed: " + res.status + " " + String(t || "").slice(0, 160)
+          );
+        });
+      }
+      return res.json();
+    });
+  }
 
-  Tracker.prototype.calculateTotalProgress = function () {
-    var total = 0;
-    for (var i = 1; i <= this.totalSteps; i++) total += (this.videoProgress[i].progress || 0);
-    return Math.round(total / this.totalSteps);
-  };
+  function getCustomFieldValue(contactResp) {
+    var fields =
+      (contactResp &&
+        contactResp.contact &&
+        contactResp.contact.customFields) ||
+      [];
+    var i, f;
 
-  Tracker.prototype.saveProgress = function () {
-    try { localStorage.setItem("twcVideoProgress", JSON.stringify(this.videoProgress)); } catch (e) {}
-  };
-
-  Tracker.prototype.updateProgress = function (stepIndexZeroBased, p) {
-    var stepKey = stepIndexZeroBased + 1;
-    var progress = Math.min(Math.round(p), 100);
-    if (progress > (this.videoProgress[stepKey].progress || 0)) {
-      this.videoProgress[stepKey].progress = progress;
-      this.saveProgress();
-      this.refreshUIOnly();
-    }
-  };
-
-  Tracker.prototype.refreshUIOnly = function () {
-    var total = this.calculateTotalProgress();
-    var mainBar = document.getElementById("main-bar-fill");
-    var mainText = document.getElementById("main-percent-text");
-    if (mainBar) mainBar.style.width = total + "%";
-    if (mainText) mainText.textContent = total + "% Complete";
-
-    for (var i = 0; i < this.steps.length; i++) {
-      var fill = document.getElementById("step-fill-" + (i + 1));
-      var percentText = document.getElementById("step-percent-" + (i + 1));
-      var prog = this.videoProgress[i + 1].progress || 0;
-      if (fill) fill.style.width = prog + "%";
-      if (percentText) {
-        percentText.textContent = prog + "%";
-        if (prog > 40) percentText.className = "step-progress-text inside-fill";
-        else percentText.className = "step-progress-text";
+    for (i = 0; i < fields.length; i++) {
+      f = fields[i];
+      if (String(f.id) === CUSTOM_FIELD_ID) {
+        return f.value == null ? "" : String(f.value).trim();
       }
     }
-  };
+    return "";
+  }
 
-  Tracker.prototype.goToStep = function (stepNum) {
-    // Lock next steps until previous is 100%
-    if (stepNum > 1) {
-      var prevKey = stepNum - 1;
-      if ((this.videoProgress[prevKey].progress || 0) < 100) {
-        this.showLockMessage(stepNum);
-        return;
+  function isWatched(val) {
+    return (
+      String(val || "").trim().toLowerCase() ===
+      String(WATCHED_VALUE).toLowerCase()
+    );
+  }
+
+  function updateContactWatched(uid) {
+    return fetch(API_BASE + "/contacts/" + encodeURIComponent(uid), {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Version: API_VERSION,
+        Authorization: "Bearer " + BEARER_TOKEN
+      },
+      body: JSON.stringify({
+        customFields: [
+          {
+            id: CUSTOM_FIELD_ID,
+            field_value: WATCHED_VALUE
+          }
+        ]
+      })
+    }).then(function (res) {
+      if (!res.ok) {
+        return res.text().then(function (t) {
+          throw new Error(
+            "PUT failed: " + res.status + " " + String(t || "").slice(0, 160)
+          );
+        });
       }
-    }
-    this.currentStep = stepNum;
-    this.render();
-    var content = document.querySelector("#wisp-twc-popup .twc-content");
-    if (content) content.scrollTop = 0;
-  };
+      return res.json();
+    });
+  }
 
-  Tracker.prototype.showLockMessage = function (stepNum) {
-    var wrap = document.querySelector("#wisp-twc-popup .video-wrapper");
-    if (!wrap) return;
-    var existing = wrap.querySelector(".lock-overlay");
-    if (existing) existing.parentNode.removeChild(existing);
+  // -----------------------------
+  // UI injection (overlay widget) - ES5-safe
+  // -----------------------------
+  function ensureFontAwesome() {
+    if (document.getElementById("ghl-tut-fa")) return;
+
+    var link = document.createElement("link");
+    link.id = "ghl-tut-fa";
+    link.rel = "stylesheet";
+    link.crossOrigin = "anonymous";
+    link.href =
+      "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css";
+    (document.head || document.documentElement).appendChild(link);
+  }
+
+  function injectWidgetStyles() {
+    if (document.getElementById("ghl-tutorial-styles")) return;
+
+    var style = document.createElement("style");
+    style.id = "ghl-tutorial-styles";
+
+    style.textContent =
+      "#ghl-tutorial-overlay{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;}" +
+      "#ghl-tutorial-overlay *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;}" +
+
+      "#ghl-tutorial-overlay .ghl-tut-stage{position:relative;width:100%;height:100%;min-height:100vh;display:flex;align-items:center;justify-content:center;}" +
+      "#ghl-tutorial-overlay .background-container{position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;overflow:hidden;}" +
+      "#ghl-tutorial-overlay .background-image{width:100%;height:100%;background-image:url('" + BG_IMAGE_URL + "');background-size:cover;background-position:center;background-repeat:no-repeat;filter:brightness(.85);}" +
+      "#ghl-tutorial-overlay .background-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.2);}" +
+
+      "#ghl-tutorial-overlay #ghl-tutorial-widget{position:relative;z-index:2;width:100%;display:flex;align-items:center;justify-content:center;}" +
+      "#ghl-tutorial-overlay #widget-box{width:900px;max-width:100%;max-height:90vh;background:white;border-radius:20px;box-shadow:0 25px 50px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(10px);background:rgba(255,255,255,.95);margin:10px;position:relative;}" +
+
+      "#ghl-tutorial-overlay .widget-close{position:absolute;top:12px;right:12px;width:38px;height:38px;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(0,0,0,.25);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;}" +
+      "#ghl-tutorial-overlay .widget-close:hover{background:rgba(0,0,0,.35);}" +
+
+      "#ghl-tutorial-overlay .widget-header{background:#d2b48c;color:#fff;padding:20px 25px;flex-shrink:0;}" +
+      "#ghl-tutorial-overlay .widget-header h2{font-size:22px;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:10px;}" +
+      "#ghl-tutorial-overlay .header-progress{height:6px;background:rgba(255,255,255,.3);border-radius:3px;overflow:hidden;margin-top:8px;}" +
+      "#ghl-tutorial-overlay .header-progress-bar{height:100%;background:#fff;transition:width .3s ease;}" +
+      "#ghl-tutorial-overlay .header-progress-text{font-size:13px;margin-top:6px;text-align:right;opacity:.9;}" +
+
+      "#ghl-tutorial-overlay .widget-content{display:flex;flex:1;overflow:hidden;}" +
+      "#ghl-tutorial-overlay .video-section{flex:1;padding:25px;background:#f8fafc;display:flex;flex-direction:column;border-right:1px solid #e2e8f0;min-height:350px;}" +
+      "#ghl-tutorial-overlay .video-title{margin-bottom:15px;font-size:20px;color:#1a202c;font-weight:600;}" +
+      "#ghl-tutorial-overlay .video-container{flex:1;background:#000;border-radius:12px;overflow:hidden;position:relative;margin-bottom:15px;}" +
+      "#ghl-tutorial-overlay .main-video{width:100%;height:100%;display:block;object-fit:cover;}" +
+      "#ghl-tutorial-overlay .about-video{font-size:14px;color:#4a5568;background:#edf2f7;padding:14px;border-radius:8px;line-height:1.5;border:1px solid #e2e8f0;}" +
+      "#ghl-tutorial-overlay .about-video strong{color:#1a202c;display:block;margin-bottom:4px;}" +
+
+      "#ghl-tutorial-overlay .steps-section{width:320px;padding:20px;background:white;overflow-y:auto;border-left:1px solid #e2e8f0;}" +
+      "#ghl-tutorial-overlay .steps-title{font-size:18px;color:#1a202c;margin-bottom:15px;font-weight:600;}" +
+      "#ghl-tutorial-overlay .step-item{margin-bottom:12px;padding:15px;border:2px solid #e2e8f0;border-radius:10px;transition:all .3s ease;cursor:pointer;}" +
+      "#ghl-tutorial-overlay .step-item:hover{border-color:#cbd5e0;transform:translateY(-2px);}" +
+      "#ghl-tutorial-overlay .step-item.active{border-color:#d2b48c;background:rgba(210,180,140,.05);box-shadow:0 4px 12px rgba(210,180,140,.1);}" +
+      "#ghl-tutorial-overlay .step-title{font-size:15px;color:#1a202c;font-weight:600;margin-bottom:6px;}" +
+      "#ghl-tutorial-overlay .step-progress-info{font-size:12px;color:#718096;display:flex;justify-content:space-between;margin-bottom:5px;}" +
+      "#ghl-tutorial-overlay .step-progress-bar{height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden;}" +
+      "#ghl-tutorial-overlay .step-progress-fill{height:100%;background:#d2b48c;transition:width .3s ease;border-radius:2px;}" +
+
+      "#ghl-tutorial-overlay .widget-navigation{padding:20px 25px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;gap:10px;}" +
+      "#ghl-tutorial-overlay .prev-btn,#ghl-tutorial-overlay .next-btn{padding:12px 24px;border-radius:8px;font-size:15px;font-weight:600;border:none;cursor:pointer;transition:all .3s ease;display:flex;align-items:center;gap:6px;min-width:110px;justify-content:center;}" +
+      "#ghl-tutorial-overlay .next-btn{background:#d2b48c;color:#fff;}" +
+      "#ghl-tutorial-overlay .next-btn:hover:not(:disabled){background:#c2a47c;transform:translateY(-2px);box-shadow:0 6px 12px rgba(210,180,140,.3);}" +
+      "#ghl-tutorial-overlay .prev-btn{background:#e2e8f0;color:#1a202c;border:1px solid #cbd5e0;}" +
+      "#ghl-tutorial-overlay .prev-btn:hover:not(:disabled){background:#cbd5e0;transform:translateY(-2px);}" +
+      "#ghl-tutorial-overlay .prev-btn:disabled{background:#edf2f7;color:#a0aec0;cursor:not-allowed;opacity:.6;border-color:#e2e8f0;}" +
+      "#ghl-tutorial-overlay .prev-btn:disabled:hover{transform:none;box-shadow:none;}" +
+
+      "#ghl-tutorial-overlay .video-loading{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;color:white;font-size:14px;}" +
+      "#ghl-tutorial-overlay .loading-spinner{width:35px;height:35px;border:3px solid rgba(255,255,255,.3);border-top:3px solid white;border-radius:50%;animation:ghlSpin 1s linear infinite;}" +
+      "@keyframes ghlSpin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}" +
+
+      "@media (max-width:768px){" +
+      "#ghl-tutorial-overlay .ghl-tut-stage{padding:5px;}" +
+      "#ghl-tutorial-overlay #widget-box{width:100%;max-height:90vh;border-radius:16px;margin:5px;}" +
+      "#ghl-tutorial-overlay .widget-content{flex-direction:column;overflow-y:auto;}" +
+      "#ghl-tutorial-overlay .video-section{border-right:none;border-bottom:1px solid #e2e8f0;min-height:auto;padding:15px;}" +
+      "#ghl-tutorial-overlay .video-container{height:280px;margin-bottom:12px;}" +
+      "#ghl-tutorial-overlay .steps-section{width:100%;border-left:none;padding:15px;max-height:280px;overflow-y:auto;}" +
+      "#ghl-tutorial-overlay .widget-navigation{padding:15px;flex-direction:column;}" +
+      "#ghl-tutorial-overlay .widget-navigation button{width:100%;max-width:180px;}" +
+      "}" +
+
+      "@media (max-width:480px){" +
+      "#ghl-tutorial-overlay #widget-box{max-height:100vh;border-radius:0;margin:0;}" +
+      "#ghl-tutorial-overlay .video-container{height:220px;}" +
+      "#ghl-tutorial-overlay .steps-section{max-height:220px;}" +
+      "}";
+
+    (document.head || document.documentElement).appendChild(style);
+  }
+
+  function mountOverlayShell() {
+    if (document.getElementById("ghl-tutorial-overlay")) return;
 
     var overlay = document.createElement("div");
-    overlay.className = "lock-overlay";
+    overlay.id = "ghl-tutorial-overlay";
     overlay.innerHTML =
-      '<div class="lock-icon">🔒</div>' +
-      '<div class="lock-message"><strong>Complete Step ' + (stepNum - 1) + ' first!</strong><br><br>' +
-      'Please watch the previous video completely (100%) before moving to Step ' + stepNum + '.</div>';
+      '<div class="ghl-tut-stage">' +
+      '  <div class="background-container">' +
+      '    <div class="background-image"></div>' +
+      '    <div class="background-overlay"></div>' +
+      "  </div>" +
+      '  <div id="ghl-tutorial-widget"></div>' +
+      "</div>";
 
-    wrap.appendChild(overlay);
+    document.body.appendChild(overlay);
+  }
 
-    setTimeout(function () {
-      try { overlay.parentNode && overlay.parentNode.removeChild(overlay); } catch (e) {}
-    }, 3000);
-  };
+  var previousOverflow = null;
 
-  Tracker.prototype.render = function () {
-    var container = document.getElementById("twc-tracker-widget");
-    if (!container) return;
+  function lockScroll() {
+    try {
+      previousOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+    } catch (e) {}
+  }
 
-    var currentData = this.steps[this.currentStep - 1];
-    var totalProgress = this.calculateTotalProgress();
-    var isLastStep = this.currentStep === this.totalSteps;
+  function unlockScroll() {
+    try {
+      document.body.style.overflow =
+        previousOverflow == null ? "" : previousOverflow;
+    } catch (e) {}
+  }
 
-    var html = [];
-    html.push('<div class="twc-header">');
-    html.push('  <h2>TWC New Member Success Tracker</h2>');
-    html.push('  <div class="progress-container">');
-    html.push('    <div class="progress-text">');
-    html.push('      <span>Step ' + this.currentStep + '/' + this.totalSteps + '</span>');
-    html.push('      <span id="main-percent-text">' + totalProgress + '% Complete</span>');
-    html.push('    </div>');
-    html.push('    <div class="progress-bar-bg"><div id="main-bar-fill" class="progress-bar-fill" style="width:' + totalProgress + '%"></div></div>');
-    html.push('  </div>');
-    html.push('</div>');
+  function teardownOverlay() {
+    var overlay = document.getElementById("ghl-tutorial-overlay");
+    if (overlay) overlay.remove();
+    unlockScroll();
+    try {
+      delete window.ghlTutorialWidget;
+    } catch (e) {}
+  }
 
-    html.push('<div class="twc-main">');
+  function showTutorialWidget(uid) {
+    if (document.getElementById("ghl-tutorial-overlay")) return;
 
-    // Content area
-    html.push('<div class="twc-content">');
-    html.push('  <div class="content-header"><h1>' + currentData.title + '</h1></div>');
-    html.push('  <div class="video-wrapper">');
-    if (currentData.hasVideo) {
-      html.push('    <video id="main-video" controls playsinline src="' + currentData.video + '"></video>');
-    } else {
-      html.push('    <div class="video-placeholder"><div style="font-size:2.5rem;">✅</div><h3 style="margin-top:10px;">Ready to Complete</h3></div>');
+    log("Tutorial overlay opening.");
+
+    ensureFontAwesome();
+    injectWidgetStyles();
+    mountOverlayShell();
+    lockScroll();
+
+    function onKeyDown(evt) {
+      if (evt && evt.key === "Escape") {
+        document.removeEventListener("keydown", onKeyDown);
+        teardownOverlay();
+      }
     }
-    html.push('  </div>');
-    html.push('  <div class="instruction-card">');
-    html.push('    <h4 style="margin:0 0 8px 0; font-size:.9rem;">Next Step:</h4>');
-    html.push('    <p style="margin:0; color:var(--twc-text-light); font-size:.85rem;">Watch the video above and follow the roadmap to unlock your full potential.</p>');
-    html.push('  </div>');
-    html.push('</div>');
+    document.addEventListener("keydown", onKeyDown);
 
-    // Sidebar
-    html.push('<div class="twc-sidebar">');
-    html.push('  <h4>Curriculum</h4>');
+    var overlay = document.getElementById("ghl-tutorial-overlay");
 
-    for (var i = 0; i < this.steps.length; i++) {
-      var prog = this.videoProgress[i + 1].progress || 0;
-      var isLocked = i > 0 && (this.videoProgress[i].progress || 0) < 100;
-      var isCurrent = (this.currentStep === (i + 1));
-      var cardCls = "step-card" + (isCurrent ? " active" : "") + (isLocked ? " locked" : "");
-      html.push('  <div class="' + cardCls + '" data-step="' + (i + 1) + '">');
-      html.push('    <div class="step-num">' + (i + 1) + '</div>');
-      html.push('    <div style="flex:1;">');
-      html.push('      <div class="step-title">' + this.steps[i].title + '</div>');
-      html.push('      <div class="step-progress-container">');
-      html.push('        <div id="step-fill-' + (i + 1) + '" class="step-progress-fill" style="width:' + prog + '%"></div>');
-      html.push('        <div id="step-percent-' + (i + 1) + '" class="step-progress-text' + (prog > 40 ? ' inside-fill' : '') + '">' + prog + '%</div>');
-      html.push('      </div>');
-      html.push('    </div>');
-      html.push('  </div>');
+    function isClickInsideBox(target) {
+      var box = document.getElementById("widget-box");
+      if (!box || !target) return false;
+      if (box === target) return true;
+      return box.contains(target);
     }
 
-    html.push('</div>'); // sidebar
-    html.push('</div>'); // main
+    overlay.addEventListener("click", function (evt) {
+      if (!evt || !evt.target) return;
+      if (isClickInsideBox(evt.target)) return;
+      teardownOverlay();
+    });
 
-    // Footer
-    html.push('<div class="twc-footer">');
-    html.push('  <button class="btn btn-prev" ' + (this.currentStep === 1 ? "disabled" : "") + ' id="wispPrevBtn">Back</button>');
-    if (isLastStep) {
-      html.push('  <button class="btn btn-complete" id="wispFinishBtn">Finish Journey</button>');
-    } else {
-      html.push('  <button class="btn btn-next" id="wispNextBtn">Next Step</button>');
+    function GHLWidget(opts) {
+      this.totalSteps = 5;
+      this.currentStep = 1;
+
+      this.stepTitles = [
+        "Setup & Configuration",
+        "Dashboard Overview",
+        "Creating Your First Campaign",
+        "Automation Rules",
+        "Analytics & Reporting"
+      ];
+
+      this.videoDescriptions = [
+        "Learn how to setup and configure your account properly.",
+        "Overview of dashboard features and navigation.",
+        "Step by step guide to creating your first campaign.",
+        "Learn automation rules and workflows.",
+        "Understand analytics and reporting features."
+      ];
+
+      this.videoUrls = VIDEO_URLS.slice(0);
+
+      this.videoStates = this.loadStates();
+      this.ensureStorage();
+
+      this.onComplete =
+        opts && typeof opts.onComplete === "function" ? opts.onComplete : null;
+
+      this.render();
+      this.bindUI();
+      this.bindVideo();
+      this.updateHeader();
     }
-    html.push('</div>');
 
-    container.innerHTML = html.join("");
+    GHLWidget.prototype.loadStates = function () {
+      var obj = {};
+      try {
+        obj = JSON.parse(localStorage.getItem("videoProgressGHL") || "{}") || {};
+      } catch (e) {
+        obj = {};
+      }
+      return obj;
+    };
 
-    // Bind sidebar clicks
-    var self = this;
-    var cards = container.querySelectorAll(".step-card");
-    for (var c = 0; c < cards.length; c++) {
-      (function (el) {
-        el.addEventListener("click", function () {
-          var step = parseInt(el.getAttribute("data-step"), 10);
-          self.goToStep(step);
-        });
-      })(cards[c]);
-    }
+    GHLWidget.prototype.saveStates = function () {
+      try {
+        localStorage.setItem("videoProgressGHL", JSON.stringify(this.videoStates));
+      } catch (e) {}
+    };
 
-    // Bind footer buttons
-    var prevBtn = document.getElementById("wispPrevBtn");
-    if (prevBtn) prevBtn.onclick = function () { self.goToStep(self.currentStep - 1); };
-    var nextBtn = document.getElementById("wispNextBtn");
-    if (nextBtn) nextBtn.onclick = function () { self.goToStep(self.currentStep + 1); };
+    GHLWidget.prototype.ensureStorage = function () {
+      var i;
+      for (i = 1; i <= this.totalSteps; i++) {
+        if (!this.videoStates[i]) {
+          this.videoStates[i] = {
+            currentTime: 0,
+            duration: 0,
+            completed: false,
+            maxProgress: 0
+          };
+        }
+        if (typeof this.videoStates[i].maxProgress !== "number")
+          this.videoStates[i].maxProgress = 0;
+        if (typeof this.videoStates[i].currentTime !== "number")
+          this.videoStates[i].currentTime = 0;
+        if (typeof this.videoStates[i].duration !== "number")
+          this.videoStates[i].duration = 0;
+      }
+      this.saveStates();
+    };
 
-    // Video progress listeners
-    var video = document.getElementById("main-video");
-    if (video) {
+    GHLWidget.prototype.calcProgress = function (step) {
+      var state = this.videoStates[step];
+      var raw;
+      if (!state) return 0;
+      if (!state.duration) return state.maxProgress || 0;
+
+      raw = Math.round((state.currentTime / state.duration) * 100);
+      if (raw > (state.maxProgress || 0)) {
+        state.maxProgress = raw;
+        this.saveStates();
+      }
+      return state.maxProgress || 0;
+    };
+
+    GHLWidget.prototype.calcTotalProgress = function () {
+      var total = 0;
+      var i;
+      for (i = 1; i <= this.totalSteps; i++) {
+        total += this.calcProgress(i);
+      }
+      return Math.round(total / this.totalSteps);
+    };
+
+    GHLWidget.prototype.render = function () {
+      var mount = document.getElementById("ghl-tutorial-widget");
+      if (!mount) return;
+
+      var step = this.currentStep;
+      var title = this.stepTitles[step - 1];
+      var desc = this.videoDescriptions[step - 1];
+      var url = this.videoUrls[step - 1];
+
+      var totalPercent = this.calcTotalProgress();
+
+      var stepsHtml = "";
+      var i;
+      for (i = 1; i <= this.totalSteps; i++) {
+        var p = this.calcProgress(i);
+        var active = i === step ? " active" : "";
+        stepsHtml +=
+          '<div class="step-item' + active + '" data-step="' + i + '">' +
+          '  <div class="step-title">' +
+          i +
+          ". " +
+          this.stepTitles[i - 1] +
+          "</div>" +
+          '  <div class="step-progress-info"><span>Progress</span><span id="step-text-' +
+          i +
+          '">' +
+          p +
+          "%</span></div>" +
+          '  <div class="step-progress-bar"><div id="step-bar-' +
+          i +
+          '" class="step-progress-fill" style="width:' +
+          p +
+          '%"></div></div>' +
+          "</div>";
+      }
+
+      var prevDisabled = step === 1 ? "disabled" : "";
+      var nextLabel = step === this.totalSteps ? "Complete Course" : "Next Step";
+
+      mount.innerHTML =
+        '<div id="widget-box">' +
+        '  <button type="button" class="widget-close" id="ghlWidgetCloseBtn" aria-label="Close"><i class="fas fa-times"></i></button>' +
+        '  <div class="widget-header">' +
+        '    <h2>Interactive Tutorial Guide <span>Step ' +
+        step +
+        "/" +
+        this.totalSteps +
+        "</span></h2>" +
+        '    <div class="header-progress"><div id="header-bar" class="header-progress-bar" style="width:' +
+        totalPercent +
+        '%"></div></div>' +
+        '    <div id="header-text" class="header-progress-text">' +
+        totalPercent +
+        "% Complete</div>" +
+        "  </div>" +
+        '  <div class="widget-content">' +
+        '    <div class="video-section">' +
+        '      <h3 class="video-title">' +
+        title +
+        "</h3>" +
+        '      <div class="video-container">' +
+        '        <video id="main-video" class="main-video" controls preload="metadata">' +
+        '          <source src="' +
+        url +
+        '" type="video/mp4">' +
+        "          Your browser does not support the video tag." +
+        "        </video>" +
+        '        <div class="video-loading" id="video-loading"><div class="loading-spinner"></div></div>' +
+        "      </div>" +
+        '      <div class="about-video"><strong>About this video:</strong> ' +
+        desc +
+        "</div>" +
+        "    </div>" +
+        '    <div class="steps-section">' +
+        '      <h3 class="steps-title">Course Steps</h3>' +
+        stepsHtml +
+        "    </div>" +
+        "  </div>" +
+        '  <div class="widget-navigation">' +
+        '    <button type="button" class="prev-btn" id="ghlPrevBtn" ' +
+        prevDisabled +
+        '><i class="fas fa-arrow-left"></i>Previous</button>' +
+        '    <button type="button" class="next-btn" id="ghlNextBtn">' +
+        nextLabel +
+        ' <i class="fas fa-arrow-right"></i></button>' +
+        "  </div>" +
+        "</div>";
+    };
+
+    GHLWidget.prototype.updateHeader = function () {
+      var percent = this.calcTotalProgress();
+      var bar = document.getElementById("header-bar");
+      var text = document.getElementById("header-text");
+      if (bar) bar.style.width = percent + "%";
+      if (text) text.textContent = percent + "% Complete";
+    };
+
+    GHLWidget.prototype.updateStepProgressUI = function (step) {
+      var p = this.calcProgress(step);
+      var bar = document.getElementById("step-bar-" + step);
+      var text = document.getElementById("step-text-" + step);
+      if (bar) bar.style.width = p + "%";
+      if (text) text.textContent = p + "%";
+    };
+
+    GHLWidget.prototype.goToStep = function (stepNum) {
+      if (stepNum < 1 || stepNum > this.totalSteps) return;
+      this.currentStep = stepNum;
+      this.render();
+      this.bindUI();
+      this.bindVideo();
+      this.updateHeader();
+    };
+
+    GHLWidget.prototype.completeCourse = function () {
+      try {
+        alert("Congratulations! You have completed all tutorial steps.");
+      } catch (e) {}
+
+      try {
+        localStorage.removeItem("videoProgressGHL");
+      } catch (e2) {}
+
+      if (this.onComplete) this.onComplete();
+    };
+
+    GHLWidget.prototype.bindUI = function () {
+      var self = this;
+
+      var closeBtn = document.getElementById("ghlWidgetCloseBtn");
+      if (closeBtn) {
+        closeBtn.onclick = function () {
+          teardownOverlay();
+        };
+      }
+
+      var prevBtn = document.getElementById("ghlPrevBtn");
+      if (prevBtn) {
+        prevBtn.onclick = function () {
+          if (self.currentStep > 1) self.goToStep(self.currentStep - 1);
+        };
+      }
+
+      var nextBtn = document.getElementById("ghlNextBtn");
+      if (nextBtn) {
+        nextBtn.onclick = function () {
+          if (self.currentStep < self.totalSteps) {
+            self.goToStep(self.currentStep + 1);
+          } else {
+            self.completeCourse();
+          }
+        };
+      }
+
+      var steps = document.querySelectorAll("#ghl-tutorial-overlay .step-item");
+      var i;
+      for (i = 0; i < steps.length; i++) {
+        (function (el) {
+          el.onclick = function () {
+            var s = parseInt(el.getAttribute("data-step"), 10);
+            if (s && s !== self.currentStep) self.goToStep(s);
+          };
+        })(steps[i]);
+      }
+    };
+
+    GHLWidget.prototype.bindVideo = function () {
+      var self = this;
+
+      var video = document.getElementById("main-video");
+      var loading = document.getElementById("video-loading");
+      var state = this.videoStates[this.currentStep];
+
+      if (!video || !state) return;
+
+      if (loading) loading.style.display = "flex";
+
+      video.onloadedmetadata = function () {
+        try {
+          state.duration = video.duration || 0;
+
+          if (state.currentTime && video.currentTime < state.currentTime) {
+            video.currentTime = state.currentTime;
+          }
+
+          self.saveStates();
+          self.updateStepProgressUI(self.currentStep);
+          self.updateHeader();
+        } catch (e) {}
+
+        if (loading) loading.style.display = "none";
+      };
+
       video.ontimeupdate = function () {
-        if (!video.duration) return;
-        self.updateProgress(self.currentStep - 1, (video.currentTime / video.duration) * 100);
+        try {
+          if (video.currentTime > state.currentTime) {
+            state.currentTime = video.currentTime;
+            self.saveStates();
+            self.updateStepProgressUI(self.currentStep);
+            self.updateHeader();
+          }
+        } catch (e) {}
       };
-      video.onended = function () {
-        self.updateProgress(self.currentStep - 1, 100);
-      };
-    }
-  };
 
-  window.WISP_TWC_tracker = new Tracker();
+      video.onended = function () {
+        try {
+          state.completed = true;
+          state.currentTime = state.duration || state.currentTime;
+          self.saveStates();
+          self.updateStepProgressUI(self.currentStep);
+          self.updateHeader();
+        } catch (e) {}
+      };
+
+      video.onwaiting = function () {
+        if (loading) loading.style.display = "flex";
+      };
+
+      video.onplaying = function () {
+        if (loading) loading.style.display = "none";
+      };
+
+      video.onerror = function () {
+        if (loading) loading.style.display = "none";
+      };
+
+      try {
+        video.load();
+      } catch (e) {}
+    };
+
+    if (!window.ghlTutorialWidget) {
+      window.ghlTutorialWidget = new GHLWidget({
+        onComplete: function () {
+          updateContactWatched(uid)
+            .then(function () {
+              log("Marked Watched successfully.");
+            })
+            .catch(function (e) {
+              log("Failed to mark Watched: " + (e && e.message ? e.message : e));
+            })
+            .finally(function () {
+              teardownOverlay();
+            });
+        }
+      });
+    }
+  }
+
+  // -----------------------------
+  // Flow logic
+  // -----------------------------
+  function runFlow() {
+    if (fired) return;
+    fired = true;
+
+    var uid = getUidFromLocalStorage();
+    if (!uid) {
+      fired = false;
+      log("UID not found. Flow aborted.");
+      return;
+    }
+
+    activeUid = uid;
+    log("UID found: " + uid + " — fetching contact…");
+
+    getContact(uid)
+      .then(function (resp) {
+        var fieldVal = getCustomFieldValue(resp);
+        log("Custom field value: " + (fieldVal || "(empty)"));
+
+        if (isWatched(fieldVal)) {
+          log("Field is Watched => do not show tutorial.");
+          return;
+        }
+
+        log("Field not Watched => show tutorial overlay.");
+        showTutorialWidget(uid);
+      })
+      .catch(function (err) {
+        fired = false;
+        log("Flow error: " + (err && err.message ? err.message : err));
+      });
+  }
+
+  function waitForTargetThenTriggerOnViewport() {
+    var intersectionObserver = null;
+    var mutationObserver = null;
+
+    function cleanup() {
+      if (intersectionObserver) intersectionObserver.disconnect();
+      if (mutationObserver) mutationObserver.disconnect();
+    }
+
+    function attachIntersection(el) {
+      if (!el) return;
+
+      if (intersectionObserver) intersectionObserver.disconnect();
+
+      intersectionObserver = new IntersectionObserver(
+        function (entries) {
+          var i;
+          for (i = 0; i < entries.length; i++) {
+            if (entries[i].isIntersecting) {
+              log("Target in viewport => running flow.");
+              runFlow();
+              cleanup();
+              break;
+            }
+          }
+        },
+        { threshold: 0.25 }
+      );
+
+      intersectionObserver.observe(el);
+      log("IntersectionObserver attached.");
+    }
+
+    var now = document.querySelector(TARGET_SELECTOR);
+    if (now) {
+      log("Target found immediately.");
+      attachIntersection(now);
+      return;
+    }
+
+    log("Waiting for target via MutationObserver…");
+
+    mutationObserver = new MutationObserver(function () {
+      var t = document.querySelector(TARGET_SELECTOR);
+      if (t) {
+        log("Target found via MutationObserver.");
+        attachIntersection(t);
+      }
+    });
+
+    mutationObserver.observe(document.documentElement, {
+      childList: true,
+      subtree: true
+    });
+  }
+
+  // Start immediately
+  waitForTargetThenTriggerOnViewport();
 
