@@ -1,74 +1,53 @@
-console.log ("script is working 43")
+console.log ("script is working 44")
 
 
   /* =========================
-     CONFIG
+     WISP/TWC CONFIG
   ========================== */
-  var TWC_TARGET_SELECTOR = "#create-post__trigger";
-  var TWC_CUSTOM_FIELD_ID = "pMR80x1BrnpsGE0ULX6e";
-  var TWC_WATCHED_VALUE = "Watched";
+  var WISP_TWC_TARGET_CUSTOM_FIELD_ID = "pMR80x1BrnpsGE0ULX6e";
+  var WISP_TWC_WATCHED_VALUE = "Watched";
 
-  var TWC_API_BASE = "https://services.leadconnectorhq.com";
-  var TWC_API_VERSION = "2021-07-28";
-  var TWC_BEARER_TOKEN = "pit-7a2aa063-5698-4490-a39c-d167acbeb4e4";
+  var WISP_TWC_API_BASE = "https://services.leadconnectorhq.com";
+  var WISP_TWC_API_VERSION = "2021-07-28";
+  var WISP_TWC_BEARER_TOKEN = "pit-7a2aa063-5698-4490-a39c-d167acbeb4e4";
 
-  // Assets
-  var TWC_BG_IMAGE_URL =
-    "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/694b465f147f516b70fc6e85.jpg";
-
-  var TWC_VIDEO_URLS = [
-    "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/694b3061aaebe869e7136502.mp4",
-    "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/694b30612dd46f53e6499569.mp4",
-    "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/694b30617d382a58543678a0.mp4",
-    "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/694b30992442e05ab9f715bb.mp4",
-    "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/694b30611dea1005fea2713a.mp4"
-  ];
-
-  // Tutorial labels (you can rename)
-  var TWC_STEP_TITLES = [
-    "Setup & Configuration",
-    "Dashboard Overview",
-    "Creating Your First Campaign",
-    "Automation Rules",
-    "Analytics & Reporting"
-  ];
-
-  var TWC_STEP_DESCRIPTIONS = [
-    "Learn how to setup and configure your account properly.",
-    "Overview of dashboard features and navigation.",
-    "Step by step guide to creating your first campaign.",
-    "Learn automation rules and workflows.",
-    "Understand analytics and reporting features."
-  ];
-
-  /* =========================
-     IDS / GLOBALS
-  ========================== */
-  var TWC_FIRED = false;
-  var TWC_ACTIVE_UID = null;
-
-  var TWC_TUTORIAL_OVERLAY_ID = "twc-tutorial-overlay";
-  var TWC_TUTORIAL_STYLES_ID = "twc-tutorial-styles";
-
-  var TWC_MISSION_ID = "twc-mission-overlay";
-  var TWC_MISSION_STYLES_ID = "twc-mission-styles";
-
-  var TWC_DOCK_ID = "twc-success-tracker-dock";
-  var TWC_DOCK_STYLE_ID = "twc-success-tracker-dock-styles";
+  var WISP_TWC_DEBUG = true;
 
   /* =========================
      LOGGING
   ========================== */
-  function twcLog(msg) {
+  function WISP_TWC_log(msg) {
+    if (!WISP_TWC_DEBUG) return;
     try {
-      console.log("[TWC_TUT]", msg);
+      console.log("[WISP_TWC]", msg);
     } catch (e) {}
   }
 
   /* =========================
-     UID DETECTION
+     SAFE HELPERS
   ========================== */
-  function twcGetUidFromLocalStorage() {
+  function WISP_TWC_safeRemove(el) {
+    try {
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+    } catch (e) {}
+  }
+
+  function WISP_TWC_injectFontAwesomeOnce() {
+    try {
+      if (document.getElementById("wisp-twc-fa")) return;
+      var link = document.createElement("link");
+      link.id = "wisp-twc-fa";
+      link.rel = "stylesheet";
+      link.href =
+        "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css";
+      (document.head || document.documentElement).appendChild(link);
+    } catch (e) {}
+  }
+
+  /* =========================
+     UID DISCOVERY (Firebase)
+  ========================== */
+  function WISP_TWC_getUidFromLocalStorage() {
     var prefix = "firebase:authUser:";
     var i, k, raw, obj;
 
@@ -91,21 +70,24 @@ console.log ("script is working 43")
   }
 
   /* =========================
-     API HELPERS
+     API
   ========================== */
-  function twcGetContact(uid) {
-    return fetch(TWC_API_BASE + "/contacts/" + encodeURIComponent(uid), {
+  function WISP_TWC_apiGetContact(uid) {
+    return fetch(WISP_TWC_API_BASE + "/contacts/" + encodeURIComponent(uid), {
       method: "GET",
       headers: {
         Accept: "application/json",
-        Version: TWC_API_VERSION,
-        Authorization: "Bearer " + TWC_BEARER_TOKEN
-      }
+        Version: WISP_TWC_API_VERSION,
+        Authorization: "Bearer " + WISP_TWC_BEARER_TOKEN,
+      },
     }).then(function (res) {
       if (!res.ok) {
         return res.text().then(function (t) {
           throw new Error(
-            "GET failed: " + res.status + " " + String(t || "").slice(0, 200)
+            "GET failed: " +
+              res.status +
+              " " +
+              String(t || "").slice(0, 180)
           );
         });
       }
@@ -113,750 +95,705 @@ console.log ("script is working 43")
     });
   }
 
-  function twcGetCustomFieldValue(contactResp) {
+  function WISP_TWC_apiPutWatched(uid) {
+    return fetch(WISP_TWC_API_BASE + "/contacts/" + encodeURIComponent(uid), {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Version: WISP_TWC_API_VERSION,
+        Authorization: "Bearer " + WISP_TWC_BEARER_TOKEN,
+      },
+      body: JSON.stringify({
+        customFields: [
+          {
+            id: WISP_TWC_TARGET_CUSTOM_FIELD_ID,
+            field_value: WISP_TWC_WATCHED_VALUE,
+          },
+        ],
+      }),
+    }).then(function (res) {
+      if (!res.ok) {
+        return res.text().then(function (t) {
+          throw new Error(
+            "PUT failed: " +
+              res.status +
+              " " +
+              String(t || "").slice(0, 180)
+          );
+        });
+      }
+      return res.json();
+    });
+  }
+
+  function WISP_TWC_extractCustomFieldValue(contactResp) {
     var fields =
-      (contactResp && contactResp.contact && contactResp.contact.customFields) || [];
+      (contactResp &&
+        contactResp.contact &&
+        contactResp.contact.customFields) ||
+      [];
     var i, f;
     for (i = 0; i < fields.length; i++) {
       f = fields[i];
-      if (String(f.id) === String(TWC_CUSTOM_FIELD_ID)) {
+      if (String(f.id) === WISP_TWC_TARGET_CUSTOM_FIELD_ID) {
         return f.value == null ? "" : String(f.value).trim();
       }
     }
     return "";
   }
 
-  function twcIsWatched(val) {
+  function WISP_TWC_isWatched(val) {
     return (
       String(val || "").trim().toLowerCase() ===
-      String(TWC_WATCHED_VALUE).trim().toLowerCase()
+      String(WISP_TWC_WATCHED_VALUE).trim().toLowerCase()
     );
   }
 
-  function twcUpdateContactWatched(uid) {
-    return fetch(TWC_API_BASE + "/contacts/" + encodeURIComponent(uid), {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        Version: TWC_API_VERSION,
-        Authorization: "Bearer " + TWC_BEARER_TOKEN
-      },
-      body: JSON.stringify({
-        customFields: [
-          {
-            id: TWC_CUSTOM_FIELD_ID,
-            field_value: TWC_WATCHED_VALUE
-          }
-        ]
-      })
-    }).then(function (res) {
-      if (!res.ok) {
-        return res.text().then(function (t) {
-          throw new Error(
-            "PUT failed: " + res.status + " " + String(t || "").slice(0, 200)
-          );
-        });
-      }
-      return res.json();
-    });
-  }
-
   /* =========================
-     SCROLL LOCK
+     CSS (SCOPED)
+     - We scope everything under #wisp-twc-tutorial-overlay or #wisp-twc-chat-root
+     - We avoid global body/html styling to not wreck the community page
   ========================== */
-  var twcPrevOverflow = null;
+  function WISP_TWC_injectStylesOnce() {
+    if (document.getElementById("wisp-twc-styles")) return;
 
-  function twcLockScroll() {
-    try {
-      twcPrevOverflow = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-    } catch (e) {}
-  }
+    var css = []
+      .concat([
+        ":root{--twc-gold:#d2b48c;--twc-gold-dark:#b89b74;--twc-gold-light:#e8d8c0;--twc-black:#1a1a1a;--twc-white:#ffffff;--twc-gray:#f8f8f8;--twc-gray-dark:#e8e8e8;--twc-text:#2c2c2c;--twc-text-light:#666666;--shadow:0 15px 35px rgba(0,0,0,0.1),0 5px 15px rgba(0,0,0,0.07);--shadow-heavy:0 20px 50px rgba(0,0,0,0.15),0 10px 25px rgba(0,0,0,0.1);--radius:18px;--radius-sm:14px;--radius-lg:24px;--transition:all .3s cubic-bezier(.4,0,.2,1);}",
 
-  function twcUnlockScroll() {
-    try {
-      document.body.style.overflow = twcPrevOverflow == null ? "" : twcPrevOverflow;
-    } catch (e) {}
-  }
+        /* Tutorial overlay wrapper */
+        "#wisp-twc-tutorial-overlay{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;}",
+        "#wisp-twc-tutorial-overlay *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}",
+        "#wisp-twc-bg-overlay{position:absolute;inset:0;background-image:url('https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/694b465f147f516b70fc6e85.jpg');background-size:cover;background-position:center;filter:brightness(.25) blur(6px);opacity:.9;z-index:1;transform:scale(1.02);}",
+        "#wisp-twc-tracker-shell{position:relative;z-index:2;width:100%;max-width:1200px;height:90vh;max-height:850px;background:var(--twc-white);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-heavy);display:flex;flex-direction:column;border:1px solid rgba(210,180,140,.15);}",
 
-  /* =========================
-     TRACKER DOCK (BOTTOM-LEFT)
-  ========================== */
-  function twcInjectDockStylesOnce() {
-    if (document.getElementById(TWC_DOCK_STYLE_ID)) return;
+        /* Main widget styles (ported from your HTML, lightly scoped) */
+        "#wisp-twc-tracker-shell .twc-header{background:linear-gradient(135deg,var(--twc-black) 0%,#222 100%);color:#fff;padding:22px 35px;display:flex;justify-content:space-between;align-items:center;border-bottom:4px solid var(--twc-gold);flex-shrink:0;min-height:85px;position:relative;overflow:hidden;}",
+        "#wisp-twc-tracker-shell .twc-header::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--twc-gold),transparent);}",
+        "#wisp-twc-tracker-shell .twc-header h2{font-size:1.5rem;font-weight:800;color:var(--twc-gold-light);letter-spacing:-.5px;display:flex;align-items:center;gap:12px;text-shadow:0 2px 4px rgba(0,0,0,.3);margin:0;}",
+        "#wisp-twc-tracker-shell .twc-header h2::before{content:'🏆';font-size:1.3rem;}",
+        "#wisp-twc-tracker-shell .progress-container{min-width:200px;background:rgba(255,255,255,.05);padding:12px 16px;border-radius:12px;border:1px solid rgba(210,180,140,.2);}",
+        "#wisp-twc-tracker-shell .progress-text{font-size:.9rem;margin-bottom:10px;display:flex;justify-content:space-between;font-weight:600;gap:20px;}",
+        "#wisp-twc-tracker-shell .progress-text span:first-child{color:var(--twc-gold-light);opacity:.9;}",
+        "#wisp-twc-tracker-shell .progress-text span:last-child{color:var(--twc-gold);font-weight:700;}",
+        "#wisp-twc-tracker-shell .progress-bar-bg{width:100%;height:10px;background:rgba(255,255,255,.1);border-radius:6px;overflow:hidden;box-shadow:inset 0 1px 3px rgba(0,0,0,.3);}",
+        "#wisp-twc-tracker-shell .progress-bar-fill{height:100%;background:linear-gradient(90deg,var(--twc-gold),#e0c090);width:0%;transition:width .8s cubic-bezier(.34,1.56,.64,1);border-radius:6px;position:relative;box-shadow:0 0 15px rgba(210,180,140,.3);}",
+
+        "#wisp-twc-tracker-shell .twc-main{display:flex;flex:1;overflow:hidden;min-height:0;background:linear-gradient(to right,#fff 0%,#fcfcfc 100%);}",
+        "#wisp-twc-tracker-shell .twc-content{flex:1;padding:30px;overflow-y:auto;display:flex;flex-direction:column;min-height:0;}",
+        "#wisp-twc-tracker-shell .content-header{margin-bottom:30px;padding-bottom:20px;border-bottom:2px solid var(--twc-gray-dark);}",
+        "#wisp-twc-tracker-shell .content-header h1{font-size:1.8rem;margin:0 0 10px 0;font-weight:800;line-height:1.2;color:var(--twc-black);letter-spacing:-.5px;background:linear-gradient(135deg,var(--twc-black),#444);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}",
+        "#wisp-twc-tracker-shell .content-header h1::after{content:'';display:block;width:60px;height:4px;background:var(--twc-gold);margin-top:15px;border-radius:2px;}",
+        "#wisp-twc-tracker-shell .video-wrapper{width:100%;aspect-ratio:16/9;background:#000;border-radius:var(--radius-sm);overflow:hidden;margin-bottom:30px;position:relative;flex-shrink:0;box-shadow:0 10px 30px rgba(0,0,0,.2);border:1px solid rgba(0,0,0,.3);}",
+        "#wisp-twc-tracker-shell .video-wrapper video{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;}",
+
+        "#wisp-twc-tracker-shell .twc-sidebar{width:380px;background:linear-gradient(to bottom,#fafafa 0%,#f5f5f5 100%);border-left:1px solid var(--twc-gray-dark);padding:30px;overflow-y:auto;min-height:0;}",
+        "#wisp-twc-tracker-shell .twc-sidebar h4{font-size:.8rem;color:var(--twc-text-light);margin:0 0 20px 0;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;position:relative;padding-bottom:10px;}",
+        "#wisp-twc-tracker-shell .twc-sidebar h4::after{content:'';position:absolute;bottom:0;left:0;width:40px;height:2px;background:var(--twc-gold);}",
+
+        "#wisp-twc-tracker-shell .step-card{padding:18px;background:#fff;border:1px solid var(--twc-gray-dark);border-radius:var(--radius-sm);margin-bottom:15px;cursor:pointer;display:flex;align-items:center;gap:15px;transition:var(--transition);position:relative;overflow:hidden;}",
+        "#wisp-twc-tracker-shell .step-card::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;background:transparent;transition:var(--transition);}",
+        "#wisp-twc-tracker-shell .step-card:hover{transform:translateY(-3px);box-shadow:0 8px 25px rgba(0,0,0,.1);border-color:var(--twc-gold-light);}",
+        "#wisp-twc-tracker-shell .step-card:hover::before{background:var(--twc-gold);}",
+        "#wisp-twc-tracker-shell .step-card.active{background:linear-gradient(135deg,var(--twc-black),#2a2a2a);color:#fff;border-color:var(--twc-gold);box-shadow:0 8px 25px rgba(0,0,0,.2);}",
+        "#wisp-twc-tracker-shell .step-card.active::before{background:var(--twc-gold);}",
+        "#wisp-twc-tracker-shell .step-num{width:36px;height:36px;border-radius:50%;background:var(--twc-gray);display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;font-size:.9rem;color:var(--twc-text);transition:var(--transition);}",
+        "#wisp-twc-tracker-shell .step-card.active .step-num{background:var(--twc-gold);color:var(--twc-black);transform:scale(1.1);}",
+        "#wisp-twc-tracker-shell .step-title{font-size:1rem;font-weight:600;white-space:normal;line-height:1.4;}",
+
+        "#wisp-twc-tracker-shell .step-progress-container{position:relative;height:22px;background:rgba(0,0,0,.06);border-radius:12px;margin-top:12px;overflow:hidden;}",
+        "#wisp-twc-tracker-shell .step-progress-fill{height:100%;background:linear-gradient(90deg,var(--twc-gold),var(--twc-gold-dark));width:0%;transition:width .6s cubic-bezier(.34,1.56,.64,1);border-radius:12px;}",
+        "#wisp-twc-tracker-shell .step-progress-text{position:absolute;top:50%;left:12px;transform:translateY(-50%);font-size:.75rem;font-weight:700;color:var(--twc-black);z-index:1;white-space:nowrap;}",
+        "#wisp-twc-tracker-shell .step-progress-text.inside-fill{color:var(--twc-black);text-align:center;width:100%;left:0;}",
+        "#wisp-twc-tracker-shell .step-card.active .step-progress-container{background:rgba(255,255,255,.12);}",
+
+        "#wisp-twc-tracker-shell .twc-footer{padding:20px 35px;background:linear-gradient(to right,#fafafa,#f5f5f5);border-top:1px solid var(--twc-gray-dark);display:flex;justify-content:space-between;gap:12px;flex-shrink:0;}",
+        "#wisp-twc-tracker-shell .btn{padding:16px 28px;border-radius:var(--radius-sm);font-weight:700;cursor:pointer;border:none;font-size:.95rem;transition:var(--transition);min-width:140px;}",
+        "#wisp-twc-tracker-shell .btn:disabled{opacity:.4;cursor:not-allowed;}",
+        "#wisp-twc-tracker-shell .btn-prev{background:var(--twc-gray);color:var(--twc-text);border:1px solid var(--twc-gray-dark);}",
+        "#wisp-twc-tracker-shell .btn-next{background:linear-gradient(135deg,var(--twc-gold),var(--twc-gold-dark));color:var(--twc-black);}",
+        "#wisp-twc-tracker-shell .btn-complete{background:linear-gradient(135deg,#27ae60,#219955);color:#fff;}",
+
+        /* Mission modal */
+        "#wisp-twc-mission-modal{position:fixed;inset:0;z-index:1000000;background:rgba(0,0,0,0.85);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .25s ease;}",
+        "#wisp-twc-mission-modal .mission-content{background:linear-gradient(135deg,#fff 0%,#fafafa 100%);border:3px solid var(--twc-gold);box-shadow:0 25px 60px rgba(0,0,0,0.3),0 0 0 1px rgba(210,180,140,0.5);border-radius:var(--radius-lg);max-width:550px;width:100%;padding:34px;text-align:center;}",
+        "#wisp-twc-mission-modal .mission-title{color:var(--twc-black);margin:0 0 14px 0;font-size:1.8rem;font-weight:800;letter-spacing:-.5px;}",
+        "#wisp-twc-mission-modal .mission-text{color:var(--twc-text);margin:0 0 22px 0;line-height:1.7;font-size:1.05rem;}",
+        "#wisp-twc-mission-modal .mission-btn{background:linear-gradient(135deg,var(--twc-gold),var(--twc-gold-dark));color:var(--twc-black);border:none;padding:16px 38px;border-radius:var(--radius-sm);font-weight:800;font-size:1.05rem;cursor:pointer;transition:var(--transition);box-shadow:0 8px 25px rgba(184,155,116,0.4);}",
+
+        /* Bottom-left tracker widget */
+        "#wisp-twc-chat-root{position:fixed;left:25px;bottom:25px;z-index:999998;display:none;}",
+        "#wisp-twc-chat-root *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}",
+        "#wisp-twc-chat-toggle{width:65px;height:65px;background:linear-gradient(135deg,var(--twc-black),#222);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--twc-gold);font-size:26px;cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,0.3),0 0 0 2px rgba(210,180,140,0.3);transition:var(--transition);border:2px solid var(--twc-gold);position:relative;}",
+        "#wisp-twc-chat-toggle.active{color:var(--twc-gold-light);transform:rotate(45deg);}",
+        "#wisp-twc-chat-badge{position:absolute;top:-5px;right:-5px;background:linear-gradient(135deg,var(--twc-gold),#e0b870);color:var(--twc-black);font-size:12px;width:24px;height:24px;border-radius:50%;display:none;align-items:center;justify-content:center;font-weight:900;border:2px solid var(--twc-black);}",
+
+        "#wisp-twc-chat-widget{position:absolute;bottom:80px;left:0;width:880px;max-height:650px;background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow-heavy);display:none;flex-direction:column;overflow:hidden;border:1px solid var(--twc-gray-dark);opacity:0;transform:translateY(20px) scale(.98);transition:opacity .3s ease,transform .3s ease;}",
+        "#wisp-twc-chat-widget.active{display:flex;opacity:1;transform:translateY(0) scale(1);}",
+        "#wisp-twc-chat-widget .widget-header{background:linear-gradient(135deg,var(--twc-black) 0%,#222 100%);color:#fff;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;border-bottom:4px solid var(--twc-gold);}",
+        "#wisp-twc-chat-widget .widget-header h1{margin:0;font-size:18px;font-weight:800;color:var(--twc-gold-light);}",
+        "#wisp-twc-chat-widget .close-widget{background:rgba(210,180,140,.2);border:1px solid rgba(210,180,140,.3);color:var(--twc-gold-light);font-size:18px;cursor:pointer;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:var(--transition);}",
+        "#wisp-twc-chat-widget .widget-body{flex:1;overflow-y:auto;background:linear-gradient(to bottom,#fafafa 0%,#f5f5f5 100%);}",
+        "#wisp-twc-chat-widget .step-row{display:flex;border-bottom:1px solid var(--twc-gray-dark);background:#fff;}",
+        "#wisp-twc-chat-widget .step-header{display:flex;align-items:center;padding:18px;width:240px;background:linear-gradient(to right,var(--twc-gray) 0%,#f0f0f0 100%);border-right:1px solid var(--twc-gray-dark);font-weight:700;color:var(--twc-black);flex-shrink:0;}",
+        "#wisp-twc-chat-widget .step-number{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:linear-gradient(135deg,var(--twc-gold),var(--twc-gold-dark));color:var(--twc-black);border-radius:50%;margin-right:12px;font-size:14px;font-weight:900;flex-shrink:0;}",
+        "#wisp-twc-chat-widget .step-title{font-size:15px;font-weight:700;white-space:normal;line-height:1.4;}",
+        "#wisp-twc-chat-widget .step-content{padding:18px;flex-grow:1;line-height:1.6;font-size:14px;color:var(--twc-text);}",
+        "#wisp-twc-chat-widget .step-time{padding:18px;width:160px;display:flex;flex-direction:column;justify-content:center;align-items:center;background:var(--twc-gray);border-left:1px solid var(--twc-gray-dark);flex-shrink:0;}",
+        "#wisp-twc-chat-widget .time-badge{background:linear-gradient(135deg,var(--twc-gold),var(--twc-gold-dark));color:var(--twc-black);padding:8px 14px;border-radius:20px;font-weight:700;font-size:13px;text-align:center;min-width:100px;}",
+        "#wisp-twc-chat-widget .completion-status{display:flex;align-items:center;margin-top:10px;gap:10px;cursor:pointer;}",
+        "#wisp-twc-chat-widget .checkbox{width:22px;height:22px;border:2px solid var(--twc-gold);border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fff;}",
+        "#wisp-twc-chat-widget .checkbox.checked{background:var(--twc-gold);}",
+        "#wisp-twc-chat-widget .checkbox.checked:after{content:'✓';color:var(--twc-black);font-weight:900;font-size:14px;}",
+
+        /* Mobile */
+        "@media (max-width: 900px){#wisp-twc-tracker-shell{height:85vh;max-height:750px;}#wisp-twc-tracker-shell .twc-main{flex-direction:column;}#wisp-twc-tracker-shell .twc-sidebar{width:100%;border-left:none;border-top:1px solid var(--twc-gray-dark);max-height:35vh;}#wisp-twc-tracker-shell .twc-content{max-height:45vh;}#wisp-twc-chat-widget{width:95vw;max-height:75vh;}}",
+        "@media (max-width: 390px){#wisp-twc-chat-root{left:10px;bottom:10px;}#wisp-twc-chat-toggle{width:48px;height:48px;font-size:17px;}#wisp-twc-chat-widget{bottom:65px;width:calc(100vw - 20px);}#wisp-twc-tracker-shell .twc-header{padding:12px 15px;min-height:60px;}#wisp-twc-tracker-shell .twc-header h2{font-size:.95rem;}#wisp-twc-tracker-shell .twc-content{padding:15px 12px;}#wisp-twc-tracker-shell .twc-sidebar{padding:15px 12px;}}",
+      ])
+      .join("");
 
     var style = document.createElement("style");
-    style.id = TWC_DOCK_STYLE_ID;
-    style.textContent =
-      "#" + TWC_DOCK_ID + "{position:fixed;left:18px;bottom:18px;z-index:999990;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial;}" +
-      "#" + TWC_DOCK_ID + " .twc-dock-btn{width:58px;height:58px;border-radius:18px;border:1px solid rgba(210,180,140,.45);background:linear-gradient(135deg,#111,#222);color:#d2b48c;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 18px 45px rgba(0,0,0,.35);position:relative;}" +
-      "#" + TWC_DOCK_ID + " .twc-dock-badge{position:absolute;top:-8px;right:-8px;width:26px;height:26px;border-radius:999px;background:linear-gradient(135deg,#d2b48c,#b89b74);color:#111;font-weight:900;font-size:12px;display:flex;align-items:center;justify-content:center;border:2px solid #111;}" +
-      "#" + TWC_DOCK_ID + " .twc-dock-panel{position:absolute;left:0;bottom:70px;width:min(520px,calc(100vw - 36px));max-height:min(70vh,560px);background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 25px 80px rgba(0,0,0,.35);border:1px solid rgba(0,0,0,.08);display:none;}" +
-      "#" + TWC_DOCK_ID + " .twc-dock-panel.active{display:block;}" +
-      "#" + TWC_DOCK_ID + " .twc-dock-head{background:linear-gradient(135deg,#111,#222);color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:4px solid #d2b48c;gap:10px;}" +
-      "#" + TWC_DOCK_ID + " .twc-dock-head-title{font-weight:900;font-size:14px;color:#e8d8c0;}" +
-      "#" + TWC_DOCK_ID + " .twc-dock-close{width:36px;height:36px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:#fff;cursor:pointer;}" +
-      "#" + TWC_DOCK_ID + " .twc-dock-body{padding:14px 14px;overflow:auto;background:#f7f7f7;max-height:calc(min(70vh,560px) - 120px);-webkit-overflow-scrolling:touch;}" +
-      "#" + TWC_DOCK_ID + " .twc-step{background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:14px;padding:12px 12px;margin-bottom:10px;}" +
-      "#" + TWC_DOCK_ID + " .twc-step-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}" +
-      "#" + TWC_DOCK_ID + " .twc-step-title{font-weight:900;font-size:13px;color:#111;line-height:1.25;}" +
-      "#" + TWC_DOCK_ID + " .twc-step-min{font-weight:900;font-size:12px;color:#111;background:linear-gradient(135deg,#d2b48c,#b89b74);padding:6px 10px;border-radius:999px;white-space:nowrap;}" +
-      "#" + TWC_DOCK_ID + " .twc-step-links{margin-top:10px;font-size:13px;line-height:1.5;color:#333;}" +
-      "#" + TWC_DOCK_ID + " .twc-step-links a{color:#b89b74;font-weight:800;text-decoration:none;border-bottom:1px dotted rgba(184,155,116,.6);}" +
-      "#" + TWC_DOCK_ID + " .twc-step-done{margin-top:10px;display:flex;align-items:center;gap:10px;}" +
-      "#" + TWC_DOCK_ID + " .twc-cb{width:26px;height:26px;border-radius:10px;border:2px solid #d2b48c;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:900;}" +
-      "#" + TWC_DOCK_ID + " .twc-cb.checked{background:#d2b48c;color:#111;}" +
-      "#" + TWC_DOCK_ID + " .twc-dock-foot{background:#fff;border-top:1px solid rgba(0,0,0,.08);padding:12px 14px;}" +
-      "#" + TWC_DOCK_ID + " .twc-progress-line{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:900;color:#111;margin-bottom:8px;}" +
-      "#" + TWC_DOCK_ID + " .twc-bar{height:10px;background:#e8e8e8;border-radius:999px;overflow:hidden;}" +
-      "#" + TWC_DOCK_ID + " .twc-bar > div{height:100%;width:0%;background:linear-gradient(90deg,#d2b48c,#b89b74);}" +
-      "@media (max-width:480px){" +
-      "#" + TWC_DOCK_ID + "{left:12px;bottom:12px;}" +
-      "#" + TWC_DOCK_ID + " .twc-dock-btn{width:54px;height:54px;border-radius:16px;}" +
-      "}";
-
+    style.id = "wisp-twc-styles";
+    style.type = "text/css";
+    style.appendChild(document.createTextNode(css));
     (document.head || document.documentElement).appendChild(style);
   }
 
-  function twcGetDockSteps() {
-    return [
-      {
-        id: "1",
-        title: "Introduction and Quick Start",
-        mins: "5 minutes",
-        html:
-          'Watch The <a target="_blank" href="https://thewealthcreatorco.app.clientclub.net/communities/groups/the-wealth-creator/home/posts/68bb852022feb0ae2704b09a">Start Here Video</a>.'
-      },
-      {
-        id: "2",
-        title: "Decide On Your Product Offer",
-        mins: "30 minutes",
-        html:
-          'Watch in order: ' +
-          '<a target="_blank" href="https://thewealthcreatorco.app.clientclub.net/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/3da547e8-78db-44f5-b21f-a32aba5244b8/posts/47f8eebb-636e-4490-ac4b-ebf7ca613286?source=communities&group_slug=the-wealth-creator">Digital & Affiliate Marketing 101</a>, ' +
-          '<a target="_blank" href="https://thewealthcreatorco.app.clientclub.net/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/3da547e8-78db-44f5-b21f-a32aba5244b8/posts/35a97775-c30b-4a64-9932-b46e065f59c2?source=communities&group_slug=the-wealth-creator">Onboarding Call</a>, ' +
-          '<a target="_blank" href="https://thewealthcreatorco.app.clientclub.net/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/3da547e8-78db-44f5-b21f-a32aba5244b8/posts/94a2da82-51cd-4607-a46f-dd86fa2af408?source=communities&group_slug=the-wealth-creator">Choose Your Path Flowchart</a>.'
-      },
-      {
-        id: "3",
-        title: "Attend an Onboarding Call",
-        mins: "30 minutes",
-        html:
-          'Choose a day: <a target="_blank" href="https://thewealthcreatorco.app.clientclub.net/communities/groups/the-wealth-creator/events">Events</a>. ' +
-          'Or self-onboard: <a target="_blank" href="https://www.loom.com/share/333c685b104d426a828c485b06dedd46">Watch</a>. ' +
-          'Then: <a target="_blank" href="https://thewealthcreator.co/firm-page">FIRM</a> (code: Firmfree) + <a target="_blank" href="https://thewealthcreator.co/branding">Branding Form</a>.'
-      },
-      {
-        id: "4",
-        title: "Create a Social Media account and Post your FIRST Post!",
-        mins: "1 hour",
-        html:
-          'Use the <a target="_blank" href="https://thewealthcreatorco.app.clientclub.net/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/80ef2315-2298-42b3-9635-92fe122dc05d">Instagram Modules</a> ' +
-          'and the <a target="_blank" href="https://thewealthcreatorco.app.clientclub.net/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/80ef2315-2298-42b3-9635-92fe122dc05d/posts/57904857-4c4f-4f93-9cab-a2f18389d523?source=communities&group_slug=the-wealth-creator">2 Weeks of Content</a>.'
-      },
-      {
-        id: "5",
-        title: "YOUR Business is Delivered",
-        mins: "5 minutes",
-        html:
-          'Watch: <a target="_blank" href="https://www.loom.com/share/730a88aad18e4fe88dfd839ff85fba46">Next steps video</a>. ' +
-          'If not delivered, email <a href="mailto:support@thecreatorsco.biz">support@thecreatorsco.biz</a>.'
-      },
-      {
-        id: "6",
-        title: "Continue Learning",
-        mins: "2 hours",
-        html:
-          'Watch the <a target="_blank" href="https://thewealthcreatorco.app.clientclub.net/communities/groups/the-wealth-creator/learning">code modules</a>, then the <a target="_blank" href="https://thewealthcreatorco.app.clientclub.net/communities/groups/the-wealth-creator/learning">wealth creator modules</a>.'
-      },
-      {
-        id: "7",
-        title: "Attend 3 Mentorship Calls",
-        mins: "3 hours",
-        html:
-          'Join calls: <a target="_blank" href="https://thewealthcreatorco.app.clientclub.net/communities/groups/the-wealth-creator/events">Events</a> ' +
-          'or watch <a target="_blank" href="https://thewealthcreatorco.app.clientclub.net/communities/groups/the-wealth-creator/channels/Past-Coaching-Calls-8cT3N">Recordings</a>.'
-      }
-    ];
-  }
-
-  function twcGetCompletedStepsSet() {
-    try {
-      return new Set(JSON.parse(localStorage.getItem("twcCompletedSteps")) || []);
-    } catch (e) {
-      return new Set();
-    }
-  }
-
-  function twcSaveCompletedStepsSet(setObj) {
-    try {
-      localStorage.setItem("twcCompletedSteps", JSON.stringify(Array.from(setObj)));
-    } catch (e) {}
-  }
-
-  function twcMountDockTracker() {
-    if (document.getElementById(TWC_DOCK_ID)) return;
-
-    twcInjectDockStylesOnce();
-
-    var root = document.createElement("div");
-    root.id = TWC_DOCK_ID;
-
-    root.innerHTML =
-      '<button class="twc-dock-btn" type="button" aria-label="Open tracker">' +
-      '  <span style="font-weight:900;font-size:16px;">✓</span>' +
-      '  <span class="twc-dock-badge" id="twcDockBadge">!</span>' +
-      "</button>" +
-      '<div class="twc-dock-panel" id="twcDockPanel">' +
-      '  <div class="twc-dock-head">' +
-      '    <div class="twc-dock-head-title">TWC Success Tracker</div>' +
-      '    <button class="twc-dock-close" type="button" aria-label="Close">✕</button>' +
-      "  </div>" +
-      '  <div class="twc-dock-body" id="twcDockBody"></div>' +
-      '  <div class="twc-dock-foot">' +
-      '    <div class="twc-progress-line"><span>Progress</span><span id="twcDockProgressText">0/7</span></div>' +
-      '    <div class="twc-bar"><div id="twcDockProgressBar"></div></div>' +
-      "  </div>" +
-      "</div>";
-
-    document.body.appendChild(root);
-
-    var btn = root.querySelector(".twc-dock-btn");
-    var panel = document.getElementById("twcDockPanel");
-    var closeBtn = root.querySelector(".twc-dock-close");
-    var body = document.getElementById("twcDockBody");
-
-    function renderDock() {
-      var steps = twcGetDockSteps();
-      var completed = twcGetCompletedStepsSet();
-
-      var html = "";
-      for (var i = 0; i < steps.length; i++) {
-        var s = steps[i];
-        var isDone = completed.has(String(s.id));
-        html +=
-          '<div class="twc-step" data-step="' +
-          s.id +
-          '">' +
-          '  <div class="twc-step-top">' +
-          '    <div class="twc-step-title">' +
-          (i + 1) +
-          ". " +
-          s.title +
-          "</div>" +
-          '    <div class="twc-step-min">' +
-          s.mins +
-          "</div>" +
-          "  </div>" +
-          '  <div class="twc-step-links">' +
-          s.html +
-          "</div>" +
-          '  <div class="twc-step-done">' +
-          '    <div class="twc-cb ' +
-          (isDone ? "checked" : "") +
-          '" data-step="' +
-          s.id +
-          '">' +
-          (isDone ? "✓" : "") +
-          "</div>" +
-          '    <div style="font-weight:800;font-size:12px;color:#111;">Mark complete</div>' +
-          "  </div>" +
-          "</div>";
-      }
-
-      body.innerHTML = html;
-
-      var cbs = body.querySelectorAll(".twc-cb");
-      for (var j = 0; j < cbs.length; j++) {
-        cbs[j].addEventListener("click", function (evt) {
-          var stepId = evt.currentTarget.getAttribute("data-step");
-          var completed2 = twcGetCompletedStepsSet();
-          if (completed2.has(stepId)) completed2.delete(stepId);
-          else completed2.add(stepId);
-          twcSaveCompletedStepsSet(completed2);
-          renderDock();
-        });
-      }
-
-      var doneCount = twcGetCompletedStepsSet().size;
-      var txt = document.getElementById("twcDockProgressText");
-      var bar = document.getElementById("twcDockProgressBar");
-      var badge = document.getElementById("twcDockBadge");
-
-      if (txt) txt.textContent = doneCount + "/7";
-      if (bar) bar.style.width = Math.round((doneCount / 7) * 100) + "%";
-      if (badge) badge.style.display = doneCount < 7 ? "flex" : "none";
-    }
-
-    function togglePanel(forceOpen) {
-      if (!panel) return;
-      var isOpen = panel.classList.contains("active");
-      if (forceOpen === true) isOpen = false;
-      if (forceOpen === false) isOpen = true;
-
-      if (isOpen) panel.classList.remove("active");
-      else panel.classList.add("active");
-    }
-
-    btn.addEventListener("click", function () {
-      togglePanel();
-    });
-
-    closeBtn.addEventListener("click", function () {
-      togglePanel(false);
-    });
-
-    document.addEventListener("click", function (evt) {
-      if (!panel || !panel.classList.contains("active")) return;
-      if (root.contains(evt.target)) return;
-      panel.classList.remove("active");
-    });
-
-    renderDock();
-    twcLog("Tracker dock mounted.");
-  }
-
   /* =========================
-     MISSION ACCOMPLISHED POPUP
-     (dismiss -> then show dock)
+     BUILD: FIRST POPUP (Tutorial Overlay)
   ========================== */
-  function twcInjectMissionStylesOnce() {
-    if (document.getElementById(TWC_MISSION_STYLES_ID)) return;
-
-    var style = document.createElement("style");
-    style.id = TWC_MISSION_STYLES_ID;
-    style.textContent =
-      "#" + TWC_MISSION_ID + "{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);padding:18px;}" +
-      "#" + TWC_MISSION_ID + " .twc-m-card{width:min(520px,100%);background:#0b1220;color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:18px;box-shadow:0 25px 70px rgba(0,0,0,.55);padding:18px 18px 16px 18px;}" +
-      "#" + TWC_MISSION_ID + " .twc-m-title{font:900 18px/1.2 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial;margin:0 0 8px 0;}" +
-      "#" + TWC_MISSION_ID + " .twc-m-body{font:14px/1.45 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial;color:rgba(255,255,255,.86);margin:0;}" +
-      "#" + TWC_MISSION_ID + " .twc-m-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:14px;}" +
-      "#" + TWC_MISSION_ID + " .twc-m-btn{border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:#fff;border-radius:12px;padding:10px 14px;font:900 13px/1 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial;cursor:pointer;}" +
-      "#" + TWC_MISSION_ID + " .twc-m-btn.primary{background:linear-gradient(135deg,#d2b48c,#b89b74);border-color:rgba(210,180,140,.45);color:#111;}" +
-      "@media (max-width:480px){" +
-      "#" + TWC_MISSION_ID + "{padding:10px;}" +
-      "#" + TWC_MISSION_ID + " .twc-m-card{border-radius:16px;}" +
-      "}";
-
-    (document.head || document.documentElement).appendChild(style);
-  }
-
-  function twcShowMissionAccomplished(onDismiss) {
-    twcInjectMissionStylesOnce();
-
-    if (document.getElementById(TWC_MISSION_ID)) return;
+  function WISP_TWC_buildTutorialOverlay() {
+    if (document.getElementById("wisp-twc-tutorial-overlay")) return;
 
     var overlay = document.createElement("div");
-    overlay.id = TWC_MISSION_ID;
+    overlay.id = "wisp-twc-tutorial-overlay";
 
-    var card = document.createElement("div");
-    card.className = "twc-m-card";
+    var bg = document.createElement("div");
+    bg.id = "wisp-twc-bg-overlay";
 
-    var title = document.createElement("div");
-    title.className = "twc-m-title";
-    title.textContent = "Mission accomplished";
+    var shell = document.createElement("div");
+    shell.id = "wisp-twc-tracker-shell";
 
-    var body = document.createElement("p");
-    body.className = "twc-m-body";
-    body.textContent =
-      "You have completed the journey. Your tracker is now available at the bottom-left of the page.";
+    var inner = document.createElement("div");
+    inner.id = "twc-tracker-widget"; // keep the same ID your tracker expects
 
-    var actions = document.createElement("div");
-    actions.className = "twc-m-actions";
+    shell.appendChild(inner);
+    overlay.appendChild(bg);
+    overlay.appendChild(shell);
 
-    var btnOk = document.createElement("button");
-    btnOk.className = "twc-m-btn primary";
-    btnOk.type = "button";
-    btnOk.textContent = "Got it";
-
-    function teardown() {
-      try {
-        overlay.remove();
-      } catch (e) {
-        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-      }
-      if (typeof onDismiss === "function") onDismiss();
-    }
-
-    btnOk.addEventListener("click", teardown);
-
-    actions.appendChild(btnOk);
-    card.appendChild(title);
-    card.appendChild(body);
-    card.appendChild(actions);
-    overlay.appendChild(card);
     document.body.appendChild(overlay);
   }
 
+  function WISP_TWC_removeTutorialOverlay() {
+    WISP_TWC_safeRemove(document.getElementById("wisp-twc-tutorial-overlay"));
+  }
+
   /* =========================
-     TUTORIAL OVERLAY (NOT CLOSABLE)
-     - No close button
-     - No ESC close
-     - No click outside close
-     - Only Finish Journey proceeds
+     BUILD: BOTTOM-LEFT TRACKER
   ========================== */
-  function twcInjectTutorialStylesOnce() {
-    if (document.getElementById(TWC_TUTORIAL_STYLES_ID)) return;
+  function WISP_TWC_buildBottomLeftTrackerOnce() {
+    if (document.getElementById("wisp-twc-chat-root")) return;
 
-    var style = document.createElement("style");
-    style.id = TWC_TUTORIAL_STYLES_ID;
+    var root = document.createElement("div");
+    root.id = "wisp-twc-chat-root";
 
-    style.textContent =
-      "#" + TWC_TUTORIAL_OVERLAY_ID + "{position:fixed;inset:0;z-index:999998;display:flex;align-items:center;justify-content:center;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " *{box-sizing:border-box;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-stage{position:relative;width:100%;height:100%;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial;display:flex;align-items:center;justify-content:center;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-bg{position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;overflow:hidden;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-bg-img{width:100%;height:100%;background-image:url('" + TWC_BG_IMAGE_URL + "');background-size:cover;background-position:center;background-repeat:no-repeat;filter:brightness(.82);}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-bg-ol{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.25);}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-box{position:relative;z-index:2;width:min(980px,100%);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;border-radius:20px;border:1px solid rgba(255,255,255,.18);box-shadow:0 25px 80px rgba(0,0,0,.55);background:rgba(255,255,255,.95);margin:10px;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-head{background:#d2b48c;color:#fff;padding:16px 18px;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-head-row{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-h-title{font-weight:900;font-size:18px;line-height:1.2;margin:0;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-h-step{font-weight:900;font-size:13px;opacity:.95;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-h-bar{height:6px;background:rgba(255,255,255,.35);border-radius:999px;overflow:hidden;margin-top:10px;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-h-bar > div{height:100%;width:0%;background:#fff;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-body{display:flex;flex:1;overflow:hidden;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-video{flex:1;padding:16px;background:#f8fafc;display:flex;flex-direction:column;min-height:340px;border-right:1px solid #e2e8f0;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-v-title{font-weight:900;font-size:16px;color:#111;margin:0 0 10px 0;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-v-wrap{flex:1;background:#000;border-radius:14px;overflow:hidden;position:relative;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " video{width:100%;height:100%;display:block;object-fit:cover;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-v-desc{margin-top:10px;background:#edf2f7;border:1px solid #e2e8f0;border-radius:12px;padding:12px;color:#333;font-size:13px;line-height:1.45;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-steps{width:320px;padding:14px;background:#fff;overflow:auto;-webkit-overflow-scrolling:touch;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-s-title{font-weight:900;font-size:15px;color:#111;margin:0 0 10px 0;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-step{padding:12px;border:2px solid #e2e8f0;border-radius:14px;margin-bottom:10px;cursor:pointer;transition:all .18s ease;background:#fff;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-step.active{border-color:#d2b48c;background:rgba(210,180,140,.06);}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-step:hover{transform:translateY(-1px);}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-step-name{font-weight:900;font-size:13px;color:#111;margin:0 0 6px 0;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-foot{padding:14px 16px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-btn{padding:12px 16px;border-radius:14px;font-weight:900;font-size:13px;border:none;cursor:pointer;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-btn.prev{background:#e2e8f0;color:#111;border:1px solid #cbd5e0;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-btn.next{background:linear-gradient(135deg,#d2b48c,#b89b74);color:#111;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-btn:disabled{opacity:.6;cursor:not-allowed;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-error{margin-left:auto;color:#b91c1c;font-weight:900;font-size:12px;}" +
+    // Widget shell
+    var widget = document.createElement("div");
+    widget.id = "wisp-twc-chat-widget";
 
-      /* iPhone / mobile optimization */
-      "@media (max-width:768px){" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-box{width:100%;height:100%;max-height:100vh;border-radius:0;margin:0;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-body{flex-direction:column;overflow:auto;-webkit-overflow-scrolling:touch;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-video{border-right:none;border-bottom:1px solid #e2e8f0;min-height:auto;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-v-wrap{height:260px;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-steps{width:100%;max-height:260px;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-foot{position:sticky;bottom:0;}" +
-      "}" +
-      "@media (max-width:480px){" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-head{padding-top:calc(14px + env(safe-area-inset-top));}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-foot{padding-bottom:calc(14px + env(safe-area-inset-bottom));}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-v-wrap{height:220px;}" +
-      "#" + TWC_TUTORIAL_OVERLAY_ID + " .twc-btn{min-width:140px;width:100%;}" +
-      "}";
+    var widgetHeader = document.createElement("div");
+    widgetHeader.className = "widget-header";
 
-    (document.head || document.documentElement).appendChild(style);
-  }
+    var headerLeft = document.createElement("div");
+    var h1 = document.createElement("h1");
+    h1.textContent = "TWC New Member Success Tracker";
+    headerLeft.appendChild(h1);
 
-  function twcRemoveTutorialOverlay() {
-    var el = document.getElementById(TWC_TUTORIAL_OVERLAY_ID);
-    if (el) {
-      try {
-        el.remove();
-      } catch (e) {
-        if (el.parentNode) el.parentNode.removeChild(el);
+    var closeBtn = document.createElement("button");
+    closeBtn.className = "close-widget";
+    closeBtn.type = "button";
+    closeBtn.innerHTML = '<i class="fas fa-times"></i>';
+
+    widgetHeader.appendChild(headerLeft);
+    widgetHeader.appendChild(closeBtn);
+
+    var widgetBody = document.createElement("div");
+    widgetBody.className = "widget-body";
+
+    // Body content (ported from your chat widget, with corrected Step 7 markup)
+    widgetBody.innerHTML =
+      '<div class="widget-container">' +
+      WISP_TWC_chatStepRow(1, "Introduction and Quick Start", "5 minutes",
+        '<ul><li>Watch The <a href="https://thewealthcreatorco.app.clientclub.net/communities/groups/the-wealth-creator/home/posts/68bb852022feb0ae2704b09a" target="_blank" class="link">Start Here Video</a></li></ul>') +
+      WISP_TWC_chatStepRow(2, "Decide On Your Product Offer", "30 minutes",
+        '<p>Watch the following videos in order then follow the flow chart:</p>' +
+        '<ul>' +
+        '<li><a href="https://thewealthcreatorco.app.clientclub.net/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/3da547e8-78db-44f5-b21f-a32aba5244b8/posts/47f8eebb-636e-4490-ac4b-ebf7ca613286?source=communities&group_slug=the-wealth-creator" target="_blank" class="link">Digital & Affiliate Marketing 101</a></li>' +
+        '<li><a href="https://thewealthcreatorco.app.clientclub.net/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/3da547e8-78db-44f5-b21f-a32aba5244b8/posts/35a97775-c30b-4a64-9932-b46e065f59c2?source=communities&group_slug=the-wealth-creator" target="_blank" class="link">Onboarding Call - Launch Your Business</a></li>' +
+        '<li><a href="https://thewealthcreatorco.app.clientclub.net/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/3da547e8-78db-44f5-b21f-a32aba5244b8/posts/94a2da82-51cd-4607-a46f-dd86fa2af408?source=communities&group_slug=the-wealth-creator" target="_blank" class="link">Choose Your Path Flowchart</a></li>' +
+        '</ul>') +
+      WISP_TWC_chatStepRow(3, "Attend an Onboarding Call", "30 minutes",
+        '<ul>' +
+        '<li>Choose a day that works for you <a href="https://thewealthcreatorco.app.clientclub.net/communities/groups/the-wealth-creator/events" target="_blank" class="link">LINK</a></li>' +
+        '<li>If you cannot attend a live onboarding, complete self onboarding: <a href="https://www.loom.com/share/333c685b104d426a828c485b06dedd46" target="_blank" class="link">WATCH NOW</a></li>' +
+        '</ul>') +
+      WISP_TWC_chatStepRow(4, "Create a Social Media account and Post your FIRST Post!", "1 hour",
+        '<ul>' +
+        '<li>The <a href="https://thewealthcreatorco.app.clientclub.net/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/80ef2315-2298-42b3-9635-92fe122dc05d" target="_blank" class="link">Instagram Modules</a> will show you how to create a new account and post</li>' +
+        '<li>You can also access the <a href="https://thewealthcreatorco.app.clientclub.net/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/80ef2315-2298-42b3-9635-92fe122dc05d/posts/57904857-4c4f-4f93-9cab-a2f18389d523?source=communities&group_slug=the-wealth-creator" target="_blank" class="link">2 Weeks of Content Done FOR You</a> content and use it to start posting!</li>' +
+        '</ul>') +
+      WISP_TWC_chatStepRow(5, "YOUR Business is Delivered", "5 minutes",
+        '<p>I got my <span class="highlight">"Congrats!! Your business is ready!"</span> email with my links - <strong>now what??</strong></p>' +
+        '<ul><li>Watch this <a href="https://www.loom.com/share/730a88aad18e4fe88dfd839ff85fba46" target="_blank" class="link">Next steps video HERE</a></li></ul>') +
+      WISP_TWC_chatStepRow(6, "Continue Learning", "2 hours",
+        '<ul>' +
+        '<li>First watch The <a href="https://thewealthcreatorco.app.clientclub.net/communities/groups/the-wealth-creator/learning" target="_blank" class="link">code modules</a> that apply to you</li>' +
+        '<li>Then watch the <a href="https://thewealthcreatorco.app.clientclub.net/communities/groups/the-wealth-creator/learning" target="_blank" class="link">wealth creator modules</a> and start learning more advanced training that apply to you and your business.</li>' +
+        '</ul>') +
+      WISP_TWC_chatStepRow(7, "Attend 3 Mentorship Calls", "3 hours",
+        '<p>Hop on our <a href="https://thewealthcreatorco.app.clientclub.net/communities/groups/the-wealth-creator/events" target="_blank" class="link">mentorship calls</a> every Tuesday and Thursday at 12 pm cst, 1 pm est. OR Watch <a href="https://thewealthcreatorco.app.clientclub.net/communities/groups/the-wealth-creator/channels/Past-Coaching-Calls-8cT3N" target="_blank" class="link">Mentorship Call Recordings</a></p>' +
+        '<ul><li>Mentorship Call 1</li><li>Mentorship Call 2</li><li>Mentorship Call 3</li></ul>') +
+      '</div>';
+
+    widget.appendChild(widgetHeader);
+    widget.appendChild(widgetBody);
+
+    // Toggle button
+    var toggleBtn = document.createElement("button");
+    toggleBtn.id = "wisp-twc-chat-toggle";
+    toggleBtn.type = "button";
+    toggleBtn.innerHTML =
+      '<i class="fas fa-tasks"></i><span id="wisp-twc-chat-badge">!</span>';
+
+    root.appendChild(widget);
+    root.appendChild(toggleBtn);
+    document.body.appendChild(root);
+
+    // Events
+    closeBtn.addEventListener("click", function () {
+      widget.classList.remove("active");
+      toggleBtn.classList.remove("active");
+    });
+
+    toggleBtn.addEventListener("click", function () {
+      var isOpen = widget.classList.contains("active");
+      if (isOpen) {
+        widget.classList.remove("active");
+        toggleBtn.classList.remove("active");
+      } else {
+        widget.classList.add("active");
+        toggleBtn.classList.add("active");
       }
-    }
-    twcUnlockScroll();
-  }
+    });
 
-  function twcShowTutorialOverlay(uid) {
-    if (document.getElementById(TWC_TUTORIAL_OVERLAY_ID)) return;
-
-    twcInjectTutorialStylesOnce();
-    twcLockScroll();
-
-    var overlay = document.createElement("div");
-    overlay.id = TWC_TUTORIAL_OVERLAY_ID;
-
-    var currentStep = 0; // 0..4
-    var totalSteps = 5;
-
-    function buildStepsHtml(activeIndex) {
-      var html = "";
-      for (var i = 0; i < totalSteps; i++) {
-        html +=
-          '<div class="twc-step ' +
-          (i === activeIndex ? "active" : "") +
-          '" data-step="' +
-          i +
-          '">' +
-          '<div class="twc-step-name">' +
-          (i + 1) +
-          ". " +
-          TWC_STEP_TITLES[i] +
-          "</div>" +
-          "</div>";
-      }
-      return html;
-    }
-
-    function updateHeaderProgress(root) {
-      var bar = root.querySelector("#twcHeaderBarFill");
-      var stepText = root.querySelector("#twcHeaderStepText");
-      var pct = Math.round(((currentStep + 1) / totalSteps) * 100);
-      if (bar) bar.style.width = pct + "%";
-      if (stepText) stepText.textContent = "Step " + (currentStep + 1) + "/" + totalSteps;
-    }
-
-    function render() {
-      overlay.innerHTML =
-        '<div class="twc-stage">' +
-        '  <div class="twc-bg">' +
-        '    <div class="twc-bg-img"></div>' +
-        '    <div class="twc-bg-ol"></div>' +
-        "  </div>" +
-        '  <div class="twc-box" role="dialog" aria-modal="true">' +
-        '    <div class="twc-head">' +
-        '      <div class="twc-head-row">' +
-        '        <div class="twc-h-title">New Member Journey</div>' +
-        '        <div class="twc-h-step" id="twcHeaderStepText">Step 1/5</div>' +
-        "      </div>" +
-        '      <div class="twc-h-bar"><div id="twcHeaderBarFill"></div></div>' +
-        "    </div>" +
-        '    <div class="twc-body">' +
-        '      <div class="twc-video">' +
-        '        <div class="twc-v-title" id="twcVideoTitle"></div>' +
-        '        <div class="twc-v-wrap">' +
-        '          <video id="twcVideo" controls playsinline webkit-playsinline preload="metadata">' +
-        '            <source id="twcVideoSource" src="" type="video/mp4" />' +
-        "          </video>" +
-        "        </div>" +
-        '        <div class="twc-v-desc" id="twcVideoDesc"></div>' +
-        "      </div>" +
-        '      <div class="twc-steps">' +
-        '        <div class="twc-s-title">Course Steps</div>' +
-        '        <div id="twcStepsList">' +
-        buildStepsHtml(currentStep) +
-        "        </div>" +
-        "      </div>" +
-        "    </div>" +
-        '    <div class="twc-foot">' +
-        '      <button class="twc-btn prev" id="twcPrevBtn" type="button">Previous</button>' +
-        '      <button class="twc-btn next" id="twcNextBtn" type="button">Next</button>' +
-        '      <div class="twc-error" id="twcErrMsg" style="display:none;"></div>' +
-        "    </div>" +
-        "  </div>" +
-        "</div>";
-
-      document.body.appendChild(overlay);
-
-      var titleEl = overlay.querySelector("#twcVideoTitle");
-      var descEl = overlay.querySelector("#twcVideoDesc");
-      var videoEl = overlay.querySelector("#twcVideo");
-      var sourceEl = overlay.querySelector("#twcVideoSource");
-      var prevBtn = overlay.querySelector("#twcPrevBtn");
-      var nextBtn = overlay.querySelector("#twcNextBtn");
-      var stepsList = overlay.querySelector("#twcStepsList");
-
-      function setError(msg) {
-        var err = overlay.querySelector("#twcErrMsg");
-        if (!err) return;
-        if (!msg) {
-          err.style.display = "none";
-          err.textContent = "";
+    // Checkbox behavior (local only)
+    var checkboxes = widget.querySelectorAll(".checkbox");
+    for (var i = 0; i < checkboxes.length; i++) {
+      checkboxes[i].addEventListener("click", function (e) {
+        var step = e.target.getAttribute("data-step");
+        if (!step) return;
+        var key = "twcChatStep_" + step;
+        var checked = localStorage.getItem(key) === "1";
+        if (checked) {
+          localStorage.setItem(key, "0");
+          e.target.classList.remove("checked");
         } else {
-          err.style.display = "block";
-          err.textContent = msg;
+          localStorage.setItem(key, "1");
+          e.target.classList.add("checked");
         }
-      }
-
-      function updateUI() {
-        if (titleEl) titleEl.textContent = TWC_STEP_TITLES[currentStep];
-        if (descEl) descEl.textContent = TWC_STEP_DESCRIPTIONS[currentStep];
-
-        if (sourceEl) sourceEl.src = TWC_VIDEO_URLS[currentStep];
-        if (videoEl) {
-          try {
-            videoEl.load();
-          } catch (e) {}
-        }
-
-        if (prevBtn) prevBtn.disabled = currentStep === 0;
-
-        if (nextBtn) {
-          if (currentStep === totalSteps - 1) {
-            nextBtn.textContent = "Finish Journey";
-          } else {
-            nextBtn.textContent = "Next";
-          }
-        }
-
-        if (stepsList) stepsList.innerHTML = buildStepsHtml(currentStep);
-
-        updateHeaderProgress(overlay);
-      }
-
-      function goToStep(idx) {
-        if (idx < 0) idx = 0;
-        if (idx > totalSteps - 1) idx = totalSteps - 1;
-        currentStep = idx;
-        setError("");
-        updateUI();
-      }
-
-      if (prevBtn) {
-        prevBtn.addEventListener("click", function () {
-          goToStep(currentStep - 1);
-        });
-      }
-
-      if (nextBtn) {
-        nextBtn.addEventListener("click", function () {
-          setError("");
-
-          if (currentStep < totalSteps - 1) {
-            goToStep(currentStep + 1);
-            return;
-          }
-
-          // FINISH JOURNEY: call API now
-          nextBtn.disabled = true;
-          nextBtn.textContent = "Finishing...";
-
-          twcUpdateContactWatched(uid)
-            .then(function () {
-              twcLog("Finish Journey: marked Watched successfully.");
-              twcRemoveTutorialOverlay();
-
-              // show Mission Accomplished, then mount dock after dismissal
-              twcShowMissionAccomplished(function () {
-                twcMountDockTracker();
-              });
-            })
-            .catch(function (err) {
-              twcLog("Finish Journey: failed PUT: " + (err && err.message ? err.message : err));
-              nextBtn.disabled = false;
-              nextBtn.textContent = "Finish Journey";
-              setError("Could not save completion. Please try again.");
-            });
-        });
-      }
-
-      if (stepsList) {
-        stepsList.addEventListener("click", function (evt) {
-          var node = evt.target;
-          while (node && node !== stepsList) {
-            if (node.getAttribute && node.getAttribute("data-step") != null) {
-              var idxStr = node.getAttribute("data-step");
-              var idx = parseInt(idxStr, 10);
-              if (!isNaN(idx)) goToStep(idx);
-              break;
-            }
-            node = node.parentNode;
-          }
-        });
-      }
-
-      // Initial UI
-      updateUI();
+      });
     }
 
-    render();
-    twcLog("Tutorial overlay shown (not closable).");
+    // Load checkbox state
+    for (var j = 0; j < checkboxes.length; j++) {
+      var s = checkboxes[j].getAttribute("data-step");
+      if (localStorage.getItem("twcChatStep_" + s) === "1") {
+        checkboxes[j].classList.add("checked");
+      }
+    }
+  }
+
+  function WISP_TWC_chatStepRow(stepNum, title, timeText, html) {
+    return (
+      '<div class="step-row" data-step="' +
+      stepNum +
+      '">' +
+      '<div class="step-header"><span class="step-number">' +
+      stepNum +
+      "</span><span class=\"step-title\">" +
+      title +
+      "</span></div>" +
+      '<div class="step-content">' +
+      html +
+      "</div>" +
+      '<div class="step-time">' +
+      '<div class="time-badge">' +
+      timeText +
+      "</div>" +
+      '<div class="completion-status">' +
+      '<div class="checkbox" data-step="' +
+      stepNum +
+      '"></div>' +
+      '<span class="status-label">Mark complete</span>' +
+      "</div>" +
+      "</div>" +
+      "</div>"
+    );
+  }
+
+  function WISP_TWC_showBottomLeftTracker() {
+    WISP_TWC_buildBottomLeftTrackerOnce();
+    var root = document.getElementById("wisp-twc-chat-root");
+    if (root) root.style.display = "block";
+  }
+
+  function WISP_TWC_hideBottomLeftTracker() {
+    var root = document.getElementById("wisp-twc-chat-root");
+    if (root) root.style.display = "none";
   }
 
   /* =========================
-     FLOW
+     MISSION ACCOMPLISHED POPUP (from your HTML modal copy)
   ========================== */
-  function twcRunFlow() {
-    if (TWC_FIRED) return;
-    TWC_FIRED = true;
+  function WISP_TWC_showMissionAccomplished(onDone) {
+    if (document.getElementById("wisp-twc-mission-modal")) return;
 
-    var uid = twcGetUidFromLocalStorage();
+    var modal = document.createElement("div");
+    modal.id = "wisp-twc-mission-modal";
+
+    var content = document.createElement("div");
+    content.className = "mission-content";
+
+    content.innerHTML =
+      '<div style="font-size:4rem;margin-bottom:18px;">🏆</div>' +
+      '<h2 class="mission-title">Mission Accomplished!</h2>' +
+      '<p class="mission-text">' +
+      "You've successfully completed the Community Intro<br><br>" +
+      'Your next adventure begins with the <strong style="color: var(--twc-gold-dark);">TWC New Member Success Tracker</strong> which will guide you on the exact steps you need to have your business built and start seeing results fast!' +
+      "</p>" +
+      '<button type="button" class="mission-btn" id="wisp-twc-mission-continue">Continue to Tracker →</button>';
+
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+
+    setTimeout(function () {
+      modal.style.opacity = "1";
+    }, 10);
+
+    function finish() {
+      modal.style.opacity = "0";
+      setTimeout(function () {
+        WISP_TWC_safeRemove(modal);
+        if (typeof onDone === "function") onDone();
+      }, 250);
+    }
+
+    // Continue button
+    var btn = document.getElementById("wisp-twc-mission-continue");
+    if (btn) btn.addEventListener("click", finish);
+
+    // Clicking outside also proceeds (matches your HTML behavior)
+    modal.addEventListener("click", function (e) {
+      if (e.target === modal) finish();
+    });
+  }
+
+  /* =========================
+     TWCTracker (First popup)
+     - derived from your HTML tracker class
+     - finishJourney is overridden to call API PUT first
+  ========================== */
+  function WISP_TWC_TWCTracker(uid) {
+    this.uid = uid;
+    this.currentStep = 1;
+    this.totalSteps = 7;
+
+    this.videoProgress =
+      JSON.parse(localStorage.getItem("twcVideoProgress") || "{}") || {};
+    this.completedSteps =
+      JSON.parse(localStorage.getItem("twcCompletedSteps") || "[]") || [];
+
+    this.steps = [
+      {
+        title: "Introduction & Quick Start",
+        video:
+          "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ec82b156e0a73e0ee9321.mp4",
+        hasVideo: true,
+      },
+      {
+        title: "Your Investment",
+        video:
+          "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ec82ec7f17f7304d24b48.mp4",
+        hasVideo: true,
+      },
+      {
+        title: "Your First 48 Hours",
+        video:
+          "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ecd64eecbfa6d734ad1da.mp4",
+        hasVideo: true,
+      },
+      {
+        title: "TWC Community & Training",
+        video:
+          "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ecd70d4fb906bf95c4d1a.mp4",
+        hasVideo: true,
+      },
+      {
+        title: "Your Role VS Our Role",
+        video:
+          "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ed3268ec5c94bb3d29f3a.mp4",
+        hasVideo: true,
+      },
+      {
+        title: "Next Steps",
+        video:
+          "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ed326acaab06b41a46e1e.mp4",
+        hasVideo: true,
+      },
+      {
+        title: "Start Here",
+        video:
+          "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696fd50572b8e1ce031c6edc.mp4",
+        hasVideo: true,
+      },
+    ];
+
+    this._initProgress();
+    this.render();
+  }
+
+  WISP_TWC_TWCTracker.prototype._initProgress = function () {
+    for (var i = 1; i <= this.totalSteps; i++) {
+      if (!this.videoProgress[i]) this.videoProgress[i] = { progress: 0 };
+    }
+    localStorage.setItem("twcVideoProgress", JSON.stringify(this.videoProgress));
+  };
+
+  WISP_TWC_TWCTracker.prototype._calcTotalProgress = function () {
+    var total = 0;
+    for (var i = 1; i <= this.totalSteps; i++) {
+      total += this.videoProgress[i].progress || 0;
+    }
+    return Math.round(total / this.totalSteps);
+  };
+
+  WISP_TWC_TWCTracker.prototype._updateProgress = function (stepIndex0, p) {
+    var stepKey = stepIndex0 + 1;
+    var progress = Math.min(Math.round(p), 100);
+
+    if (progress > (this.videoProgress[stepKey].progress || 0)) {
+      this.videoProgress[stepKey].progress = progress;
+      localStorage.setItem("twcVideoProgress", JSON.stringify(this.videoProgress));
+      this._refreshUIOnly();
+    }
+  };
+
+  WISP_TWC_TWCTracker.prototype._refreshUIOnly = function () {
+    var total = this._calcTotalProgress();
+    var mainBar = document.getElementById("main-bar-fill");
+    var mainText = document.getElementById("main-percent-text");
+    if (mainBar) mainBar.style.width = total + "%";
+    if (mainText) mainText.textContent = total + "% Complete";
+
+    for (var i = 1; i <= this.totalSteps; i++) {
+      var fill = document.getElementById("step-fill-" + i);
+      var percentText = document.getElementById("step-percent-" + i);
+      var prog = this.videoProgress[i].progress || 0;
+
+      if (fill) fill.style.width = prog + "%";
+      if (percentText) {
+        percentText.textContent = prog + "%";
+        if (prog > 40) percentText.className = "step-progress-text inside-fill";
+        else percentText.className = "step-progress-text";
+      }
+    }
+  };
+
+  WISP_TWC_TWCTracker.prototype.goToStep = function (stepNum) {
+    // Lock steps until previous is 100% watched
+    if (stepNum > 1) {
+      var prevKey = stepNum - 1;
+      var prevProg = (this.videoProgress[prevKey] && this.videoProgress[prevKey].progress) || 0;
+      if (prevProg < 100) {
+        return;
+      }
+    }
+
+    this.currentStep = stepNum;
+    this.render();
+
+    var contentArea = document.querySelector("#wisp-twc-tracker-shell .twc-content");
+    if (contentArea) contentArea.scrollTop = 0;
+  };
+
+  WISP_TWC_TWCTracker.prototype.finishJourney = function () {
+    var self = this;
+    var btn = document.getElementById("wisp-twc-finish-btn");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Saving...";
+    }
+
+    // PUT watched ONLY here (your requirement)
+    WISP_TWC_apiPutWatched(self.uid)
+      .then(function (resp) {
+        WISP_TWC_log("PUT watched succeded: " + String(resp && resp.succeded));
+        WISP_TWC_removeTutorialOverlay();
+        WISP_TWC_showMissionAccomplished(function () {
+          WISP_TWC_showBottomLeftTracker();
+        });
+      })
+      .catch(function (err) {
+        WISP_TWC_log("PUT watched error: " + (err && err.message ? err.message : err));
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "Finish Journey";
+        }
+        try {
+          alert("Could not save progress. Please try again.");
+        } catch (e) {}
+      });
+  };
+
+  WISP_TWC_TWCTracker.prototype.render = function () {
+    var container = document.getElementById("twc-tracker-widget");
+    if (!container) return;
+
+    var currentData = this.steps[this.currentStep - 1];
+    var totalProgress = this._calcTotalProgress();
+    var isLastStep = this.currentStep === this.totalSteps;
+
+    var sidebarHtml = "";
+    for (var i = 0; i < this.steps.length; i++) {
+      var stepIndex = i + 1;
+      var progress = (this.videoProgress[stepIndex] && this.videoProgress[stepIndex].progress) || 0;
+      var isCurrent = this.currentStep === stepIndex;
+
+      var isLocked = i > 0 && (((this.videoProgress[i] && this.videoProgress[i].progress) || 0) < 100);
+      var clickAttr = isLocked ? "" : 'onclick="window.WISP_TWC_tracker.goToStep(' + stepIndex + ')"';
+
+      sidebarHtml +=
+        '<div class="step-card ' + (isCurrent ? "active" : "") + ' ' + (isLocked ? "locked" : "") + '" ' + clickAttr + ">" +
+        '<div class="step-num">' + stepIndex + "</div>" +
+        '<div style="flex:1;">' +
+        '<div class="step-title">' + this.steps[i].title + "</div>" +
+        '<div class="step-progress-container">' +
+        '<div id="step-fill-' + stepIndex + '" class="step-progress-fill" style="width:' + progress + '%"></div>' +
+        '<div id="step-percent-' + stepIndex + '" class="step-progress-text ' + (progress > 40 ? "inside-fill" : "") + '">' + progress + "%</div>" +
+        "</div>" +
+        "</div>" +
+        "</div>";
+    }
+
+    container.innerHTML =
+      '<div class="twc-header">' +
+      "<h2>TWC New Member Success Tracker</h2>" +
+      '<div class="progress-container">' +
+      '<div class="progress-text"><span>Step ' +
+      this.currentStep +
+      "/" +
+      this.totalSteps +
+      '</span><span id="main-percent-text">' +
+      totalProgress +
+      "% Complete</span></div>" +
+      '<div class="progress-bar-bg"><div id="main-bar-fill" class="progress-bar-fill" style="width:' +
+      totalProgress +
+      '%"></div></div>' +
+      "</div>" +
+      "</div>" +
+      '<div class="twc-main">' +
+      '<div class="twc-content">' +
+      '<div class="content-header"><h1>' +
+      currentData.title +
+      "</h1></div>" +
+      '<div class="video-wrapper">' +
+      (currentData.hasVideo
+        ? '<video id="main-video" controls playsinline src="' +
+          currentData.video +
+          '"></video>'
+        : "") +
+      "</div>" +
+      "</div>" +
+      '<div class="twc-sidebar">' +
+      '<h4>Curriculum</h4>' +
+      sidebarHtml +
+      "</div>" +
+      "</div>" +
+      '<div class="twc-footer">' +
+      '<button class="btn btn-prev" ' +
+      (this.currentStep === 1 ? "disabled" : "") +
+      ' onclick="window.WISP_TWC_tracker.goToStep(' +
+      (this.currentStep - 1) +
+      ')">Back</button>' +
+      (isLastStep
+        ? '<button id="wisp-twc-finish-btn" class="btn btn-complete" onclick="window.WISP_TWC_tracker.finishJourney()">Finish Journey</button>'
+        : '<button class="btn btn-next" onclick="window.WISP_TWC_tracker.goToStep(' +
+          (this.currentStep + 1) +
+          ')">Next Step</button>') +
+      "</div>";
+
+    var video = document.getElementById("main-video");
+    var self = this;
+    if (video) {
+      video.ontimeupdate = function () {
+        if (!video.duration || isNaN(video.duration)) return;
+        self._updateProgress(self.currentStep - 1, (video.currentTime / video.duration) * 100);
+      };
+      video.onended = function () {
+        self._updateProgress(self.currentStep - 1, 100);
+      };
+    }
+
+    this._refreshUIOnly();
+  };
+
+  /* =========================
+     MASTER FLOW
+     - Always GET contact on page load
+     - Decide overlay vs tracker
+  ========================== */
+  function WISP_TWC_start() {
+    WISP_TWC_injectFontAwesomeOnce();
+    WISP_TWC_injectStylesOnce();
+
+    var uid = WISP_TWC_getUidFromLocalStorage();
     if (!uid) {
-      TWC_FIRED = false;
-      twcLog("UID not found. Flow aborted.");
+      WISP_TWC_log("UID not found. Stopping.");
       return;
     }
 
-    TWC_ACTIVE_UID = uid;
-    twcLog("UID found: " + uid + " — fetching contact…");
+    WISP_TWC_log("UID found: " + uid + " — checking watched status...");
 
-    twcGetContact(uid)
+    WISP_TWC_apiGetContact(uid)
       .then(function (resp) {
-        var fieldVal = twcGetCustomFieldValue(resp);
-        twcLog("Custom field value: " + (fieldVal || "(empty)"));
+        var fieldVal = WISP_TWC_extractCustomFieldValue(resp);
+        WISP_TWC_log("Custom field value: " + (fieldVal || "(empty)"));
 
-        if (twcIsWatched(fieldVal)) {
-          twcLog("Watched => show dock only.");
-          twcMountDockTracker();
+        if (WISP_TWC_isWatched(fieldVal)) {
+          // Watched => show tracker bottom-left only
+          WISP_TWC_hideBottomLeftTracker(); // reset
+          WISP_TWC_removeTutorialOverlay();
+          WISP_TWC_showBottomLeftTracker();
           return;
         }
 
-        twcLog("Not watched => show tutorial overlay.");
-        twcShowTutorialOverlay(uid);
+        // Not watched => show first tutorial popup ONLY (not closeable)
+        WISP_TWC_hideBottomLeftTracker();
+        WISP_TWC_buildTutorialOverlay();
+
+        // Mount tracker
+        window.WISP_TWC_tracker = new WISP_TWC_TWCTracker(uid);
       })
       .catch(function (err) {
-        TWC_FIRED = false;
-        twcLog("Flow error: " + (err && err.message ? err.message : err));
+        WISP_TWC_log("GET contact failed: " + (err && err.message ? err.message : err));
       });
   }
 
-  /* =========================
-     OBSERVERS
-  ========================== */
-  function twcWaitForTargetThenTriggerOnViewport() {
-    var intersectionObserver = null;
-    var mutationObserver = null;
-
-    function cleanup() {
-      if (intersectionObserver) intersectionObserver.disconnect();
-      if (mutationObserver) mutationObserver.disconnect();
-    }
-
-    function attachIntersection(el) {
-      if (!el) return;
-
-      if (intersectionObserver) intersectionObserver.disconnect();
-
-      intersectionObserver = new IntersectionObserver(
-        function (entries) {
-          for (var i = 0; i < entries.length; i++) {
-            if (entries[i].isIntersecting) {
-              twcLog("Target in viewport => running flow.");
-              twcRunFlow();
-              cleanup();
-              break;
-            }
-          }
-        },
-        { threshold: 0.25 }
-      );
-
-      intersectionObserver.observe(el);
-      twcLog("IntersectionObserver attached.");
-    }
-
-    var now = document.querySelector(TWC_TARGET_SELECTOR);
-    if (now) {
-      twcLog("Target found immediately.");
-      attachIntersection(now);
-      return;
-    }
-
-    twcLog("Waiting for target via MutationObserver…");
-
-    mutationObserver = new MutationObserver(function () {
-      var t = document.querySelector(TWC_TARGET_SELECTOR);
-      if (t) {
-        twcLog("Target found via MutationObserver.");
-        attachIntersection(t);
-      }
-    });
-
-    mutationObserver.observe(document.documentElement, {
-      childList: true,
-      subtree: true
-    });
-  }
-
   // Start immediately
-  twcWaitForTargetThenTriggerOnViewport();
+  try {
+    WISP_TWC_start();
+  } catch (e) {
+    WISP_TWC_log("Fatal error: " + (e && e.message ? e.message : e));
+  }
 
