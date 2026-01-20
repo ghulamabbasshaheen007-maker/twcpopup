@@ -2,7 +2,7 @@
 console.log ("script is working 37")
 
 
-function injectStyles() {
+
   if (document.getElementById("wisp-twc-styles")) return;
 
   // FontAwesome (optional). Loads once.
@@ -116,7 +116,7 @@ function injectStyles() {
   style.type = "text/css";
   style.appendChild(document.createTextNode(css));
   (document.head || document.documentElement).appendChild(style);
-}
+
 
 function showPopup() {
   if (document.getElementById("wisp-twc-popup")) return;
