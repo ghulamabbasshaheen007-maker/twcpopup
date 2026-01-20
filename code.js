@@ -1,5 +1,4 @@
-console.log ("script is working 40")
-
+console.log ("script is working 42")
 
 
   /* =========================
@@ -11,7 +10,7 @@ console.log ("script is working 40")
 
   var API_BASE = "https://services.leadconnectorhq.com";
   var API_VERSION = "2021-07-28";
-  var BEARER_TOKEN = "pit-7a2aa063-5698-4490-a39c-d167acbeb4e4"; // <-- keep your working token here
+  var BEARER_TOKEN = "pit-7a2aa063-5698-4490-a39c-d167acbeb4e4";
 
   var MODAL_ID = "twc-success-tracker-modal";
   var MODAL_STYLE_ID = "twc-success-tracker-modal-styles";
@@ -128,11 +127,12 @@ console.log ("script is working 40")
 
   /* =========================
      POPUP HTML (SELF-CONTAINED)
-     - No external hosting
-     - Loaded via iframe srcdoc to isolate CSS/JS
-     NOTE: I fixed ONE breaking typo in your HTML:
-           In Step 7, you had ".step-content {" inside the markup.
-           I corrected it to "<div class='step-content'>".
+     - Mobile optimized for iPhone:
+       - Safe-area padding
+       - Single-column layout under 768px
+       - Full-screen behavior under 480px
+       - Stacked step rows for chat widget under 520px
+       - Larger tap targets + better scrolling
   ========================== */
   function getPopupSrcDoc() {
     return (
@@ -140,12 +140,10 @@ console.log ("script is working 40")
 '<html lang="en">\n' +
 '<head>\n' +
 '  <meta charset="UTF-8">\n' +
-'  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">\n' +
+'  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">\n' +
 '  <title>TWC Success Tracker</title>\n' +
 '  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">\n' +
 '  <style>\n' +
-
-/* ======= YOUR CSS (UNCHANGED) ======= */
 String.raw`
         :root {
             --twc-gold: #d2b48c;
@@ -172,6 +170,11 @@ String.raw`
             -webkit-tap-highlight-color: transparent; 
         }
 
+        html, body {
+            height: 100%;
+            width: 100%;
+        }
+
         body {
             min-height: 100vh;
             font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -181,7 +184,12 @@ String.raw`
             justify-content: center;
             color: var(--twc-text);
             overflow: hidden;
-            padding: 20px;
+            /* iPhone safe-area friendly padding */
+            padding:
+              calc(12px + env(safe-area-inset-top))
+              calc(12px + env(safe-area-inset-right))
+              calc(12px + env(safe-area-inset-bottom))
+              calc(12px + env(safe-area-inset-left));
         }
 
         .bg-overlay {
@@ -217,10 +225,6 @@ String.raw`
             transition: var(--transition);
         }
 
-        #twc-tracker-widget:hover {
-            box-shadow: 0 25px 60px rgba(0,0,0,0.2), 0 15px 35px rgba(0,0,0,0.15);
-        }
-
         .twc-header {
             background: linear-gradient(135deg, var(--twc-black) 0%, #222222 100%);
             color: white; 
@@ -233,16 +237,7 @@ String.raw`
             min-height: 85px;
             position: relative;
             overflow: hidden;
-        }
-
-        .twc-header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, var(--twc-gold), transparent);
+            gap: 14px;
         }
 
         .twc-header h2 { 
@@ -254,11 +249,6 @@ String.raw`
             align-items: center;
             gap: 12px;
             text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }
-
-        .twc-header h2::before {
-            content: '🏆';
-            font-size: 1.3rem;
         }
 
         .progress-container { 
@@ -276,16 +266,6 @@ String.raw`
             justify-content: space-between; 
             font-weight: 600;
             gap: 20px;
-        }
-        
-        .progress-text span:first-child {
-            color: var(--twc-gold-light);
-            opacity: 0.9;
-        }
-        
-        .progress-text span:last-child {
-            color: var(--twc-gold);
-            font-weight: 700;
         }
         
         .progress-bar-bg { 
@@ -323,11 +303,12 @@ String.raw`
             flex-direction: column;
             background: transparent;
             min-height: 0;
+            -webkit-overflow-scrolling: touch;
         }
 
         .content-header { 
-            margin-bottom: 30px;
-            padding-bottom: 20px;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
             border-bottom: 2px solid var(--twc-gray-dark);
         }
 
@@ -338,20 +319,6 @@ String.raw`
             line-height: 1.2; 
             color: var(--twc-black);
             letter-spacing: -0.5px;
-            background: linear-gradient(135deg, var(--twc-black), #444);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .content-header h1::after {
-            content: '';
-            display: block;
-            width: 60px;
-            height: 4px;
-            background: var(--twc-gold);
-            margin-top: 15px;
-            border-radius: 2px;
         }
 
         .video-wrapper { 
@@ -360,18 +327,11 @@ String.raw`
             background: #000; 
             border-radius: var(--radius-sm); 
             overflow: hidden; 
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             position: relative;
             flex-shrink: 0;
-            background-image: linear-gradient(45deg, #0a0a0a, #000);
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             border: 1px solid rgba(0,0,0,0.3);
-            transition: var(--transition);
-        }
-
-        .video-wrapper:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
         }
         
         .video-wrapper video, .video-placeholder { 
@@ -381,35 +341,12 @@ String.raw`
             object-fit: cover; 
         }
 
-        .video-placeholder {
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center;
-            color: var(--twc-gold-light); 
-            text-align: center;
-            background: linear-gradient(135deg, #1a1a1a, #0a0a0a);
-        }
-
-        .video-placeholder div:first-child {
-            font-size: 3rem;
-            margin-bottom: 15px;
-            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
-        }
-
-        .video-placeholder h3 {
-            font-size: 1.4rem;
-            font-weight: 600;
-            margin-top: 15px;
-            color: var(--twc-gold);
-        }
-
         .instruction-card { 
             background: linear-gradient(to right, var(--twc-gray) 0%, #f0f0f0 100%);
             border-left: 5px solid var(--twc-gold); 
-            padding: 25px; 
+            padding: 18px; 
             border-radius: var(--radius-sm);
-            margin-bottom: 25px;
+            margin-bottom: 18px;
             visibility: hidden;
             box-shadow: 0 5px 15px rgba(0,0,0,0.05);
         }
@@ -422,6 +359,7 @@ String.raw`
             overflow-y: auto;
             min-height: 0;
             box-shadow: -5px 0 15px rgba(0,0,0,0.03);
+            -webkit-overflow-scrolling: touch;
         }
 
         .twc-sidebar h4 {
@@ -433,16 +371,6 @@ String.raw`
             font-weight: 700;
             position: relative;
             padding-bottom: 10px;
-        }
-
-        .twc-sidebar h4::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 40px;
-            height: 2px;
-            background: var(--twc-gold);
         }
 
         .step-card { 
@@ -459,39 +387,7 @@ String.raw`
             position: relative;
             overflow: hidden;
         }
-        
-        .step-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 4px;
-            height: 100%;
-            background: transparent;
-            transition: var(--transition);
-        }
 
-        .step-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-            border-color: var(--twc-gold-light);
-        }
-        
-        .step-card:hover::before {
-            background: var(--twc-gold);
-        }
-        
-        .step-card.active { 
-            background: linear-gradient(135deg, var(--twc-black), #2a2a2a); 
-            color: white; 
-            border-color: var(--twc-gold); 
-            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
-        }
-        
-        .step-card.active::before {
-            background: var(--twc-gold);
-        }
-        
         .step-num { 
             width: 36px;
             height: 36px;
@@ -502,31 +398,15 @@ String.raw`
             justify-content: center; 
             font-weight: 800; 
             flex-shrink: 0; 
-            font-size: 0.9rem;
+            font-size: 0.95rem;
             color: var(--twc-text);
-            border: 2px solid transparent;
-            transition: var(--transition);
-        }
-        
-        .step-card:hover .step-num {
-            background: var(--twc-gold-light);
-        }
-
-        .active .step-num { 
-            background: var(--twc-gold); 
-            color: var(--twc-black);
-            border-color: rgba(255,255,255,0.3);
-            transform: scale(1.1);
         }
 
         .step-title { 
             font-size: 1rem;
-            font-weight: 600; 
+            font-weight: 650; 
             white-space: normal;
-            overflow: visible;
-            text-overflow: clip;
-            letter-spacing: -0.2px;
-            line-height: 1.4;
+            line-height: 1.35;
         }
 
         .step-progress-container {
@@ -534,9 +414,8 @@ String.raw`
             height: 22px;
             background: rgba(0,0,0,0.06); 
             border-radius: 12px; 
-            margin-top: 12px; 
+            margin-top: 10px; 
             overflow: hidden;
-            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
         }
 
         .step-progress-fill {
@@ -545,8 +424,6 @@ String.raw`
             width: 0%; 
             transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
             border-radius: 12px;
-            position: relative;
-            box-shadow: 0 2px 8px rgba(184, 155, 116, 0.3);
         }
 
         .step-progress-text {
@@ -554,57 +431,36 @@ String.raw`
             top: 50%;
             left: 12px;
             transform: translateY(-50%);
-            font-size: 0.75rem;
-            font-weight: 700;
+            font-size: 0.78rem;
+            font-weight: 800;
             color: var(--twc-black);
             z-index: 1;
             white-space: nowrap;
-            text-shadow: 0 1px 2px rgba(255,255,255,0.5);
-        }
-
-        .step-progress-text.inside-fill {
-            color: var(--twc-black);
-            text-align: center;
-            width: 100%;
-            left: 0;
-            text-shadow: 0 1px 2px rgba(255,255,255,0.8);
-        }
-
-        .active .step-progress-text {
-            color: rgba(255,255,255,0.95);
-            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-        }
-
-        .active .step-progress-container {
-            background: rgba(255,255,255,0.12);
         }
 
         .twc-footer { 
-            padding: 20px 35px;
-            background: white; 
+            padding: 16px 24px;
+            background: linear-gradient(to right, #fafafa, #f5f5f5);
             border-top: 1px solid var(--twc-gray-dark); 
             display: flex; 
             justify-content: space-between; 
+            gap: 12px;
             flex-shrink: 0; 
-            background: linear-gradient(to right, #fafafa, #f5f5f5);
         }
 
         .btn { 
-            padding: 16px 28px;
+            padding: 16px 18px;
             border-radius: var(--radius-sm); 
-            font-weight: 700; 
+            font-weight: 800; 
             cursor: pointer; 
             border: none; 
             font-size: 0.95rem;
-            letter-spacing: -0.3px;
             transition: var(--transition);
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
             min-width: 140px;
-            position: relative;
-            overflow: hidden;
+            flex: 1;
         }
 
         .btn-prev { 
@@ -622,30 +478,31 @@ String.raw`
             background: linear-gradient(135deg, #27ae60, #219955);
             color: white;
         }
-        
+
         .btn:disabled { 
-            opacity: 0.4;
+            opacity: 0.45;
             cursor: not-allowed;
         }
 
+        /* ===== Chat widget section (kept, improved responsive) ===== */
         .chat-widget-container {
             position: fixed;
-            bottom: 25px;
-            right: 25px;
+            bottom: calc(18px + env(safe-area-inset-bottom));
+            right: calc(18px + env(safe-area-inset-right));
             z-index: 1000;
             display: none;
         }
 
         .chat-toggle-btn {
-            width: 65px;
-            height: 65px;
+            width: 60px;
+            height: 60px;
             background: linear-gradient(135deg, var(--twc-black), #222222);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             color: var(--twc-gold);
-            font-size: 26px;
+            font-size: 24px;
             cursor: pointer;
             border: 2px solid var(--twc-gold);
             position: relative;
@@ -653,7 +510,7 @@ String.raw`
 
         .tracker-widget {
             position: absolute;
-            bottom: 80px;
+            bottom: 76px;
             right: 0;
             width: 880px;
             max-height: 650px;
@@ -665,6 +522,7 @@ String.raw`
             opacity: 0;
             transform: translateY(20px) scale(0.98);
             transition: opacity 0.3s ease, transform 0.3s ease;
+            box-shadow: var(--shadow-heavy);
         }
 
         .tracker-widget.active {
@@ -676,19 +534,18 @@ String.raw`
         .widget-header {
             background: linear-gradient(135deg, var(--twc-black) 0%, #222222 100%);
             color: white;
-            padding: 22px 30px;
+            padding: 18px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             border-bottom: 4px solid var(--twc-gold);
-            position: relative;
         }
 
         .close-widget {
             background: rgba(210, 180, 140, 0.2);
             border: 1px solid rgba(210, 180, 140, 0.3);
             color: var(--twc-gold-light);
-            font-size: 20px;
+            font-size: 18px;
             cursor: pointer;
             width: 40px;
             height: 40px;
@@ -698,30 +555,137 @@ String.raw`
             border-radius: 50%;
         }
 
-        .widget-body { flex: 1; overflow-y: auto; padding: 0; background: #f5f5f5; }
+        .widget-body { flex: 1; overflow-y: auto; padding: 0; background: #f5f5f5; -webkit-overflow-scrolling: touch; }
         .widget-container { background: transparent; }
 
         .step-row { display: flex; border-bottom: 1px solid var(--twc-gray-dark); background: white; }
-        .step-header { display:flex; align-items:center; padding:22px; width:240px; background: var(--twc-gray); border-right:1px solid var(--twc-gray-dark); font-weight:700; }
-        .step-content { padding:22px; flex-grow:1; line-height:1.7; font-size:15px; }
-        .step-time { padding:22px; width:160px; display:flex; flex-direction:column; align-items:center; justify-content:center; background: var(--twc-gray); border-left:1px solid var(--twc-gray-dark); }
-        .time-badge { background: linear-gradient(135deg, var(--twc-gold), var(--twc-gold-dark)); padding:10px 18px; border-radius:20px; font-weight:700; }
-        .step-number { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; background: linear-gradient(135deg, var(--twc-gold), var(--twc-gold-dark)); border-radius:50%; margin-right:12px; font-weight:900; }
-        .link { color: var(--twc-gold-dark); text-decoration:none; border-bottom:1px dotted var(--twc-gold); font-weight:600; }
+        .step-header { display:flex; align-items:center; padding:18px; width:240px; background: var(--twc-gray); border-right:1px solid var(--twc-gray-dark); font-weight:800; }
+        .step-content { padding:18px; flex-grow:1; line-height:1.7; font-size:15px; }
+        .step-time { padding:18px; width:160px; display:flex; flex-direction:column; align-items:center; justify-content:center; background: var(--twc-gray); border-left:1px solid var(--twc-gray-dark); }
+        .time-badge { background: linear-gradient(135deg, var(--twc-gold), var(--twc-gold-dark)); padding:10px 18px; border-radius:20px; font-weight:900; color: var(--twc-black); }
+        .step-number { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; background: linear-gradient(135deg, var(--twc-gold), var(--twc-gold-dark)); border-radius:50%; margin-right:12px; font-weight:900; color: var(--twc-black); }
+        .link { color: var(--twc-gold-dark); text-decoration:none; border-bottom:1px dotted var(--twc-gold); font-weight:700; }
         .note { background: var(--twc-gray); border-left:5px solid var(--twc-gold); padding:18px 20px; margin:18px 0; font-size:14px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
-        .highlight { background: var(--twc-gold-light); padding:4px 8px; border-radius:6px; font-weight:600; }
+        .highlight { background: var(--twc-gold-light); padding:4px 8px; border-radius:6px; font-weight:800; }
 
-        .widget-footer { background: var(--twc-gray); padding:25px 30px; text-align:center; border-top:1px solid var(--twc-gray-dark); }
+        .widget-footer { background: var(--twc-gray); padding:20px; text-align:center; border-top:1px solid var(--twc-gray-dark); }
         .progress-bar { width:250px; height:10px; background: var(--twc-gray-dark); border-radius:6px; overflow:hidden; margin: 0 auto; }
         .progress-fill { height:100%; background: linear-gradient(90deg, var(--twc-gold), var(--twc-gold-dark)); width:0%; }
 
         .completion-status { display:flex; align-items:center; gap:12px; margin-top:12px; }
-        .checkbox { width:24px; height:24px; border:2px solid var(--twc-gold); border-radius:6px; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#fff; }
+        .checkbox { width:28px; height:28px; border:2px solid var(--twc-gold); border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#fff; }
         .checkbox.checked { background: var(--twc-gold); }
         .checkbox.checked:after { content:"✓"; font-weight:900; }
 
-        .lock-overlay { position:absolute; inset:0; background: rgba(0,0,0,0.85); display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; z-index:10; }
-        .lock-message strong { color: var(--twc-gold); }
+        .lock-overlay { position:absolute; inset:0; background: rgba(0,0,0,0.85); display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; z-index:10; padding: 18px; text-align:center; }
+
+        /* =========================
+           MOBILE OPTIMIZATION
+        ========================== */
+
+        /* iPad / small laptops */
+        @media (max-width: 1024px) {
+            #twc-tracker-widget { height: 92vh; }
+            .twc-sidebar { width: 340px; padding: 22px; }
+            .twc-content { padding: 22px; }
+        }
+
+        /* Mobile: switch to single column layout */
+        @media (max-width: 768px) {
+            body { overflow: hidden; }
+
+            #twc-tracker-widget {
+              height: calc(100vh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+              max-height: none;
+              border-radius: 18px;
+            }
+
+            .twc-header {
+              flex-direction: column;
+              align-items: flex-start;
+              padding: 16px 16px;
+              min-height: auto;
+            }
+
+            .twc-header h2 { font-size: 1.2rem; }
+            .progress-container { width: 100%; min-width: 0; }
+
+            .twc-main {
+              flex-direction: column;
+            }
+
+            .twc-content {
+              padding: 16px;
+              order: 1;
+            }
+
+            .twc-sidebar {
+              width: 100%;
+              border-left: none;
+              border-top: 1px solid var(--twc-gray-dark);
+              padding: 16px;
+              order: 2;
+              max-height: 34vh;
+            }
+
+            .content-header h1 { font-size: 1.35rem; }
+
+            .twc-footer {
+              padding: 12px 12px;
+              flex-direction: row;
+            }
+
+            .btn { min-width: 0; padding: 14px 14px; font-size: 0.95rem; }
+            .step-card { padding: 14px; }
+            .step-num { width: 34px; height: 34px; }
+        }
+
+        /* iPhone: full-bleed feel, comfortable taps, better chat widget */
+        @media (max-width: 480px) {
+            body {
+              padding:
+                calc(8px + env(safe-area-inset-top))
+                calc(8px + env(safe-area-inset-right))
+                calc(8px + env(safe-area-inset-bottom))
+                calc(8px + env(safe-area-inset-left));
+            }
+
+            #twc-tracker-widget {
+              border-radius: 16px;
+              height: calc(100vh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+            }
+
+            .video-wrapper { margin-bottom: 14px; }
+            .twc-sidebar { max-height: 38vh; }
+
+            .chat-widget-container {
+              right: calc(12px + env(safe-area-inset-right));
+              bottom: calc(12px + env(safe-area-inset-bottom));
+            }
+
+            .chat-toggle-btn { width: 56px; height: 56px; font-size: 22px; }
+
+            .tracker-widget {
+              width: calc(100vw - 24px);
+              right: 0;
+              max-height: calc(78vh - env(safe-area-inset-bottom));
+              border-radius: 18px;
+            }
+
+            /* Stack step rows into vertical blocks */
+            .step-row { flex-direction: column; }
+            .step-header { width: 100%; border-right: none; border-bottom: 1px solid var(--twc-gray-dark); }
+            .step-time { width: 100%; border-left: none; border-top: 1px solid var(--twc-gray-dark); flex-direction: row; justify-content: space-between; gap: 12px; }
+            .completion-status { margin-top: 0; }
+        }
+
+        /* Very small devices */
+        @media (max-width: 360px) {
+            .twc-header h2 { font-size: 1.08rem; }
+            .content-header h1 { font-size: 1.22rem; }
+            .btn { padding: 12px 12px; font-size: 0.9rem; }
+            .tracker-widget { width: calc(100vw - 16px); }
+        }
 ` +
 '  </style>\n' +
 '</head>\n' +
@@ -823,7 +787,7 @@ String.raw`
 '          <div class="widget-footer">\n' +
 '            <a class="link" href="mailto:support@thecreatorsco.biz"><i class="fas fa-envelope"></i> Please contact support@thecreatorsco.biz with any questions, concerns, etc!</a>\n' +
 '            <div style="margin-top:18px;">\n' +
-'              <div style="font-weight:700;margin-bottom:10px;">Overall Progress: <span id="progressText">0/7</span> steps completed</div>\n' +
+'              <div style="font-weight:800;margin-bottom:10px;">Overall Progress: <span id="progressText">0/7</span> steps completed</div>\n' +
 '              <div class="progress-bar"><div class="progress-fill" id="progressBar"></div></div>\n' +
 '            </div>\n' +
 '          </div>\n' +
@@ -997,7 +961,6 @@ String.raw`
 '        }\n' +
 '\n' +
 '        finishJourney() {\n' +
-'          // Same behavior you had: reveal the chat widget and hide main\n' +
 '          document.getElementById("chatWidgetContainer").style.display = "block";\n' +
 '          document.getElementById("twc-tracker-widget").style.display = "none";\n' +
 '          var bg = document.querySelector(".bg-overlay");\n' +
@@ -1079,6 +1042,9 @@ String.raw`
 
   /* =========================
      MODAL (IFRAME SRCdoc)
+     - iPhone optimization:
+       - Full screen on small widths
+       - Close button respects safe areas
   ========================== */
   function injectModalStyles() {
     if (document.getElementById(MODAL_STYLE_ID)) return;
@@ -1090,7 +1056,15 @@ String.raw`
       "#" + MODAL_ID + " .twc-modal-shell{position:relative;width:min(1320px,100%);height:min(920px,92vh);background:#000;border-radius:16px;overflow:hidden;box-shadow:0 25px 80px rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.12);}" +
       "#" + MODAL_ID + " .twc-modal-close{position:absolute;top:10px;right:10px;z-index:" + (MODAL_Z_INDEX + 1) + ";width:44px;height:44px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.35);color:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;}" +
       "#" + MODAL_ID + " .twc-modal-close:hover{background:rgba(0,0,0,.55);}" +
-      "#" + MODAL_ID + " iframe{width:100%;height:100%;border:0;display:block;background:#fff;}";
+      "#" + MODAL_ID + " iframe{width:100%;height:100%;border:0;display:block;background:#fff;}" +
+
+      /* Mobile */
+      "@media (max-width: 480px){" +
+      "#" + MODAL_ID + "{padding:0;backdrop-filter:blur(4px);}" +
+      "#" + MODAL_ID + " .twc-modal-shell{width:100vw;height:100vh;border-radius:0;}" +
+      "#" + MODAL_ID + " .twc-modal-close{top:calc(10px + env(safe-area-inset-top));right:calc(10px + env(safe-area-inset-right));}" +
+      "}";
+
     (document.head || document.documentElement).appendChild(style);
   }
 
@@ -1136,7 +1110,7 @@ String.raw`
     overlay.appendChild(shell);
     document.body.appendChild(overlay);
 
-    log("Popup modal injected via iframe srcdoc.");
+    log("Popup modal injected via iframe srcdoc (mobile optimized).");
   }
 
   /* =========================
@@ -1173,7 +1147,7 @@ String.raw`
         });
       })
       .catch(function (err) {
-        fired = false; // allow retry if something fails
+        fired = false;
         log("Flow error: " + (err && err.message ? err.message : err));
       });
   }
