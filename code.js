@@ -1,8 +1,6 @@
-
 console.log ("script is working 37")
 
-
-
+function injectStyles() {
   if (document.getElementById("wisp-twc-styles")) return;
 
   // FontAwesome (optional). Loads once.
@@ -116,7 +114,7 @@ console.log ("script is working 37")
   style.type = "text/css";
   style.appendChild(document.createTextNode(css));
   (document.head || document.documentElement).appendChild(style);
-
+}
 
 function showPopup() {
   if (document.getElementById("wisp-twc-popup")) return;
@@ -189,7 +187,7 @@ function WISP_TWC_initTracker() {
     document.addEventListener("touchstart", function(){}, { passive: true });
   })();
 
-  function Tracker() {
+  
     this.__inited = true;
     this.currentStep = 1;
     this.totalSteps = 7;
@@ -405,4 +403,4 @@ function WISP_TWC_initTracker() {
   };
 
   window.WISP_TWC_tracker = new Tracker();
-}
+
