@@ -1119,7 +1119,7 @@ console.log ("script is working 47")
           '"></video>'
         : '<div class="video-placeholder"><div style="font-size:2.5rem;">✅</div><h3 style="margin-top:10px;">Ready to Complete</h3></div>') +
       "</div>" +
-      '<div class="instruction-card">' +
+      '<div class="instruction-card" style="visibility:hidden;">' +
       '<h4 style="margin:0 0 8px 0; font-size:0.9rem;">Next Step:</h4>' +
       '<p style="margin:0; color:var(--twc-text-light); font-size:0.85rem;">Watch the video above and follow the roadmap to unlock your full potential.</p>' +
       "</div>" +
