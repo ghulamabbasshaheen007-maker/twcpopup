@@ -118,7 +118,7 @@ console.log ("script is working 47")
 
   function TWCX_isWatched(val) {
     return (
-      String(val || "").trim().toLowerCase() ==
+      String(val || "").trim().toLowerCase() ===
       String(TWCX_WATCHED_VALUE).trim().toLowerCase()
     );
   }
