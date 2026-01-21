@@ -1,5 +1,4 @@
-console.log ("script is working 45")
-
+console.log ("script is working 47")
 
   /* =========================
      TWC CONFIG (edit if needed)
@@ -190,11 +189,8 @@ console.log ("script is working 45")
   z-index: 2;
   width: 100%;
   max-width: 1200px;
-
-  /* Key iPhone fix: enforce a real height so footer stays visible */
   height: min(90vh, 850px);
   max-height: 850px;
-
   background: var(--twc-white);
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -347,7 +343,7 @@ console.log ("script is working 45")
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  flex-shrink: 0; /* keep visible */
+  flex-shrink: 0;
 }
 #TWCX_overlay_root .btn{
   padding: 16px 28px;
@@ -426,7 +422,7 @@ console.log ("script is working 45")
   #TWCX_overlay_root .twc-sidebar{ max-height: 30vh; }
 }
 
-/* ========= MISSION ACCOMPLISHED MODAL (exact behavior from HTML) ========= */
+/* ========= MISSION ACCOMPLISHED MODAL ========= */
 #TWCX_mission_modal{
   position: fixed;
   inset: 0;
@@ -542,13 +538,44 @@ console.log ("script is working 45")
 #TWCX_chat_root .time-badge{ background: linear-gradient(135deg, var(--twc-gold), var(--twc-gold-dark)); padding: 8px 14px; border-radius: 20px; font-weight:700; text-align:center; }
 #TWCX_chat_root .completion-status{ display:flex; align-items:center; gap:10px; margin-top: 12px; }
 #TWCX_chat_root .checkbox{ width: 22px; height: 22px; border:2px solid var(--twc-gold); border-radius: 6px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+
+/* ===== WIDGET FIXES (ONLY) ===== */
+#TWCX_chat_root .checkbox{
+  pointer-events: auto;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#TWCX_chat_root .completion-status{ pointer-events: auto; }
 #TWCX_chat_root .checkbox.checked{ background: var(--twc-gold); }
 #TWCX_chat_root .checkbox.checked:after{ content:"✓"; font-weight:900; color: var(--twc-black); }
+/* Progress UI (injected by JS; these styles are safe even if missing) */
+#TWCX_chat_root .widget-progress{
+  margin-top: 6px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.85);
+  font-weight: 700;
+}
+#TWCX_chat_root .widget-progress-bar-bg{
+  margin-top: 8px;
+  width: 180px;
+  height: 8px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 6px;
+  overflow: hidden;
+}
+#TWCX_chat_root .widget-progress-bar-fill{
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--twc-gold), var(--twc-gold-dark));
+  transition: width 0.35s ease;
+}
 
 @media (max-width: 900px){
   #TWCX_chat_root .tracker-widget{ width: calc(100vw - 30px); max-height: 75vh; }
   #TWCX_chat_root .step-row{ flex-direction: column; }
   #TWCX_chat_root .step-header, #TWCX_chat_root .step-content, #TWCX_chat_root .step-time{ width:100%; border-left:none; }
+  #TWCX_chat_root .widget-progress-bar-bg{ width: 140px; }
 }
 `;
 
@@ -573,7 +600,7 @@ console.log ("script is working 45")
       <div class="chat-widget-container" id="chatWidgetContainer" style="display:none;">
         <div class="tracker-widget" id="trackerWidget">
           <div class="widget-header">
-            <div class="header-content">
+            <div class="header-content" id="twcxWidgetHeaderContent">
               <h1 style="margin:0;font-size:16px;font-weight:800;color:var(--twc-gold-light);">TWC New Member Success Tracker</h1>
             </div>
             <button class="close-widget" id="closeWidgetBtn" type="button">×</button>
@@ -589,7 +616,7 @@ console.log ("script is working 45")
                 </div>
                 <div class="step-time">
                   <div class="time-badge">5 minutes</div>
-                  <div class="completion-status"><div class="checkbox" data-step="1"></div><span class="status-label">Mark complete</span></div>
+                  <div class="completion-status"><div class="checkbox" data-step="1" role="button" tabindex="0" aria-label="Toggle step 1 completion"></div><span class="status-label">Mark complete</span></div>
                 </div>
               </div>
 
@@ -605,7 +632,7 @@ console.log ("script is working 45")
                 </div>
                 <div class="step-time">
                   <div class="time-badge">30 minutes</div>
-                  <div class="completion-status"><div class="checkbox" data-step="2"></div><span class="status-label">Mark complete</span></div>
+                  <div class="completion-status"><div class="checkbox" data-step="2" role="button" tabindex="0" aria-label="Toggle step 2 completion"></div><span class="status-label">Mark complete</span></div>
                 </div>
               </div>
 
@@ -619,7 +646,7 @@ console.log ("script is working 45")
                 </div>
                 <div class="step-time">
                   <div class="time-badge">30 minutes</div>
-                  <div class="completion-status"><div class="checkbox" data-step="3"></div><span class="status-label">Mark complete</span></div>
+                  <div class="completion-status"><div class="checkbox" data-step="3" role="button" tabindex="0" aria-label="Toggle step 3 completion"></div><span class="status-label">Mark complete</span></div>
                 </div>
               </div>
 
@@ -632,7 +659,7 @@ console.log ("script is working 45")
                 </div>
                 <div class="step-time">
                   <div class="time-badge">1 hour</div>
-                  <div class="completion-status"><div class="checkbox" data-step="4"></div><span class="status-label">Mark complete</span></div>
+                  <div class="completion-status"><div class="checkbox" data-step="4" role="button" tabindex="0" aria-label="Toggle step 4 completion"></div><span class="status-label">Mark complete</span></div>
                 </div>
               </div>
 
@@ -645,7 +672,7 @@ console.log ("script is working 45")
                 </div>
                 <div class="step-time">
                   <div class="time-badge">5 minutes</div>
-                  <div class="completion-status"><div class="checkbox" data-step="5"></div><span class="status-label">Mark complete</span></div>
+                  <div class="completion-status"><div class="checkbox" data-step="5" role="button" tabindex="0" aria-label="Toggle step 5 completion"></div><span class="status-label">Mark complete</span></div>
                 </div>
               </div>
 
@@ -658,7 +685,7 @@ console.log ("script is working 45")
                 </div>
                 <div class="step-time">
                   <div class="time-badge">2 hours</div>
-                  <div class="completion-status"><div class="checkbox" data-step="6"></div><span class="status-label">Mark complete</span></div>
+                  <div class="completion-status"><div class="checkbox" data-step="6" role="button" tabindex="0" aria-label="Toggle step 6 completion"></div><span class="status-label">Mark complete</span></div>
                 </div>
               </div>
 
@@ -669,7 +696,7 @@ console.log ("script is working 45")
                 </div>
                 <div class="step-time">
                   <div class="time-badge">3 hours</div>
-                  <div class="completion-status"><div class="checkbox" data-step="7"></div><span class="status-label">Mark complete</span></div>
+                  <div class="completion-status"><div class="checkbox" data-step="7" role="button" tabindex="0" aria-label="Toggle step 7 completion"></div><span class="status-label">Mark complete</span></div>
                 </div>
               </div>
 
@@ -682,6 +709,130 @@ console.log ("script is working 45")
     `;
 
     document.body.appendChild(root);
+  }
+
+  /* =========================
+     WIDGET FIX HELPERS (WIDGET ONLY)
+  ========================== */
+  function TWCX_widgetGetCompletedSet() {
+    var arr;
+    try {
+      arr = JSON.parse(localStorage.getItem("twcCompletedSteps")) || [];
+    } catch (e) {
+      arr = [];
+    }
+    // normalize to strings
+    var out = {};
+    for (var i = 0; i < arr.length; i++) out[String(arr[i])] = true;
+    return out;
+  }
+
+  function TWCX_widgetSaveCompletedSet(setObj) {
+    var keys = [];
+    for (var k in setObj) {
+      if (Object.prototype.hasOwnProperty.call(setObj, k) && setObj[k]) keys.push(String(k));
+    }
+    // keep stable order
+    keys.sort(function (a, b) { return parseInt(a, 10) - parseInt(b, 10); });
+    localStorage.setItem("twcCompletedSteps", JSON.stringify(keys));
+  }
+
+  function TWCX_widgetRender() {
+    var root = document.getElementById("TWCX_chat_root");
+    if (!root) return;
+
+    var widget = document.getElementById("trackerWidget");
+    if (!widget) return;
+
+    var checkboxes = widget.querySelectorAll('.checkbox[data-step]');
+    var totalSteps = checkboxes.length || 7;
+
+    var completed = TWCX_widgetGetCompletedSet();
+    var completedCount = 0;
+
+    for (var i = 0; i < checkboxes.length; i++) {
+      var cb = checkboxes[i];
+      var step = String(cb.getAttribute("data-step") || "").trim();
+      var isDone = !!completed[step];
+
+      if (isDone) completedCount++;
+
+      if (isDone) cb.classList.add("checked");
+      else cb.classList.remove("checked");
+
+      // update label text beside checkbox
+      var statusLabel = cb.parentNode ? cb.parentNode.querySelector(".status-label") : null;
+      if (statusLabel) statusLabel.textContent = isDone ? "Completed" : "Mark complete";
+    }
+
+    var percent = totalSteps ? Math.round((completedCount / totalSteps) * 100) : 0;
+
+    // Inject progress UI into widget header (widget-only)
+    var headerContent = document.getElementById("twcxWidgetHeaderContent") || widget.querySelector(".header-content");
+    if (headerContent && !headerContent.querySelector("#twcxWidgetProgressWrap")) {
+      var wrap = document.createElement("div");
+      wrap.id = "twcxWidgetProgressWrap";
+      wrap.innerHTML =
+        '<div class="widget-progress" id="twcxWidgetProgressText">Progress: 0/0 (0%)</div>' +
+        '<div class="widget-progress-bar-bg"><div class="widget-progress-bar-fill" id="twcxWidgetProgressFill"></div></div>';
+      headerContent.appendChild(wrap);
+    }
+
+    var progText = document.getElementById("twcxWidgetProgressText");
+    var progFill = document.getElementById("twcxWidgetProgressFill");
+    if (progText) progText.textContent = "Progress: " + completedCount + "/" + totalSteps + " (" + percent + "%)";
+    if (progFill) progFill.style.width = percent + "%";
+  }
+
+  function TWCX_widgetBindCheckboxesOnce() {
+    var widget = document.getElementById("trackerWidget");
+    if (!widget || widget.__twcxCheckboxBound) return;
+    widget.__twcxCheckboxBound = true;
+
+    // Click + keyboard toggle
+    widget.addEventListener("click", function (e) {
+      var target = e.target;
+      if (!target) return;
+
+      // allow clicking on checkbox only (no interference with links)
+      if (target.classList && target.classList.contains("checkbox")) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        var step = String(target.getAttribute("data-step") || "").trim();
+        if (!step) return;
+
+        var completed = TWCX_widgetGetCompletedSet();
+        completed[step] = !completed[step];
+        TWCX_widgetSaveCompletedSet(completed);
+        TWCX_widgetRender();
+      }
+    }, true);
+
+    widget.addEventListener("keydown", function (e) {
+      var target = e.target;
+      if (!target || !target.classList || !target.classList.contains("checkbox")) return;
+
+      if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+        e.preventDefault();
+        e.stopPropagation();
+
+        var step = String(target.getAttribute("data-step") || "").trim();
+        if (!step) return;
+
+        var completed = TWCX_widgetGetCompletedSet();
+        completed[step] = !completed[step];
+        TWCX_widgetSaveCompletedSet(completed);
+        TWCX_widgetRender();
+      }
+    }, true);
+
+    // If progress changes from the main popup (video ended), re-render widget
+    window.addEventListener("storage", function (ev) {
+      if (ev && (ev.key === "twcCompletedSteps" || ev.key === "twcVideoProgress")) {
+        TWCX_widgetRender();
+      }
+    });
   }
 
   function TWCX_showChatWidgetOnly() {
@@ -699,6 +850,8 @@ console.log ("script is working 45")
       toggleBtn.__twcxBound = true;
       toggleBtn.addEventListener("click", function () {
         widget.classList.toggle("active");
+        // render when opened (ensures correct progress display)
+        if (widget.classList.contains("active")) TWCX_widgetRender();
       });
     }
     if (closeBtn && widget && !closeBtn.__twcxBound) {
@@ -707,6 +860,10 @@ console.log ("script is working 45")
         widget.classList.remove("active");
       });
     }
+
+    // ===== WIDGET FIX: bind + render =====
+    TWCX_widgetBindCheckboxesOnce();
+    TWCX_widgetRender();
   }
 
   /* =========================
@@ -755,7 +912,6 @@ console.log ("script is working 45")
     var btn = content.querySelector("#continueToChecklist");
     if (btn) btn.addEventListener("click", closeIt);
 
-    // Allow click-outside to close (matches your HTML behavior)
     modal.addEventListener("click", function (e) {
       if (e.target === modal) closeIt();
     });
@@ -801,48 +957,13 @@ console.log ("script is working 45")
     );
 
     this.steps = [
-      {
-        title: "Introduction & Quick Start",
-        video:
-          "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ec82b156e0a73e0ee9321.mp4",
-        hasVideo: true,
-      },
-      {
-        title: "Your Investment",
-        video:
-          "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ec82ec7f17f7304d24b48.mp4",
-        hasVideo: true,
-      },
-      {
-        title: "Your First 48 Hours",
-        video:
-          "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ecd64eecbfa6d734ad1da.mp4",
-        hasVideo: true,
-      },
-      {
-        title: "TWC Community & Training",
-        video:
-          "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ecd70d4fb906bf95c4d1a.mp4",
-        hasVideo: true,
-      },
-      {
-        title: "Your Role VS Our Role",
-        video:
-          "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ed3268ec5c94bb3d29f3a.mp4",
-        hasVideo: true,
-      },
-      {
-        title: "Next Steps",
-        video:
-          "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ed326acaab06b41a46e1e.mp4",
-        hasVideo: true,
-      },
-      {
-        title: "Start Here",
-        video:
-          "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696fd50572b8e1ce031c6edc.mp4",
-        hasVideo: true,
-      },
+      { title: "Introduction & Quick Start", video: "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ec82b156e0a73e0ee9321.mp4", hasVideo: true },
+      { title: "Your Investment", video: "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ec82ec7f17f7304d24b48.mp4", hasVideo: true },
+      { title: "Your First 48 Hours", video: "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ecd64eecbfa6d734ad1da.mp4", hasVideo: true },
+      { title: "TWC Community & Training", video: "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ecd70d4fb906bf95c4d1a.mp4", hasVideo: true },
+      { title: "Your Role VS Our Role", video: "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ed3268ec5c94bb3d29f3a.mp4", hasVideo: true },
+      { title: "Next Steps", video: "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ed326acaab06b41a46e1e.mp4", hasVideo: true },
+      { title: "Start Here", video: "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696fd50572b8e1ce031c6edc.mp4", hasVideo: true },
     ];
 
     this.initializeProgress();
@@ -882,6 +1003,9 @@ console.log ("script is working 45")
       }
 
       this.refreshUIOnly();
+
+      // WIDGET ONLY: if widget exists, re-render progress/checkmarks
+      try { TWCX_widgetRender(); } catch (e) {}
     }
   };
 
@@ -899,7 +1023,6 @@ console.log ("script is working 45")
       var prevStepKey = stepNum - 1;
       var prevStepProgress = (this.videoProgress[prevStepKey] || {}).progress || 0;
       if (prevStepProgress < 100) {
-        // same lock behavior
         this.showLockMessage(stepNum);
         return;
       }
@@ -911,9 +1034,7 @@ console.log ("script is working 45")
   TWCTracker.prototype.showLockMessage = function (stepNum) {
     var existingLock = document.querySelector("#twc-tracker-widget .lock-overlay");
     if (existingLock) {
-      try {
-        existingLock.remove();
-      } catch (e) {}
+      try { existingLock.remove(); } catch (e) {}
     }
 
     var videoWrapper = document.querySelector("#twc-tracker-widget .video-wrapper");
@@ -933,19 +1054,12 @@ console.log ("script is working 45")
 
     setTimeout(function () {
       if (lockOverlay && lockOverlay.parentNode) {
-        try {
-          lockOverlay.remove();
-        } catch (e) {}
+        try { lockOverlay.remove(); } catch (e) {}
       }
     }, 3000);
   };
 
   TWCTracker.prototype.finishJourney = function () {
-    // When Finish Journey clicked:
-    // 1) PUT Watched
-    // 2) show Mission Accomplished
-    // 3) remove big overlay
-    // 4) show chat widget bottom-left
     var uid = TWCX_getUidFromLocalStorage();
     if (!uid) {
       TWCX_log("No UID found at finishJourney. Aborting.");
@@ -1059,7 +1173,6 @@ console.log ("script is working 45")
 
     container.innerHTML = html;
 
-    // Bind sidebar clicks
     var cards = container.querySelectorAll(".step-card[data-step]");
     var self = this;
     for (i = 0; i < cards.length; i++) {
@@ -1069,7 +1182,6 @@ console.log ("script is working 45")
       });
     }
 
-    // Bind footer buttons
     var backBtn = document.getElementById("twcBtnBack");
     if (backBtn) {
       backBtn.addEventListener("click", function () {
@@ -1091,7 +1203,6 @@ console.log ("script is working 45")
       });
     }
 
-    // Video progress tracking
     var video = document.getElementById("main-video");
     if (video) {
       video.ontimeupdate = function () {
@@ -1119,7 +1230,6 @@ console.log ("script is working 45")
 
     var uid = TWCX_getUidFromLocalStorage();
     if (!uid) {
-      // If no UID, do nothing (avoids breaking page)
       TWCX_log("UID not found. Script will not show onboarding.");
       return;
     }
@@ -1140,9 +1250,7 @@ console.log ("script is working 45")
         TWCX_log("Watched = false -> show onboarding popup.");
         TWCX_createOverlayRootIfMissing();
 
-        // Create tracker instance inside overlay
         TWCX_trackerInstance = new TWCTracker();
-        // expose for debugging if needed
         window.TWCX_tracker = TWCX_trackerInstance;
       })
       .catch(function (err) {
@@ -1150,10 +1258,8 @@ console.log ("script is working 45")
       });
   }
 
-  // Start immediately (no DOMContentLoaded)
   try {
     TWCX_init();
   } catch (e) {
     TWCX_log("Init crashed: " + (e && e.message ? e.message : e));
   }
-
