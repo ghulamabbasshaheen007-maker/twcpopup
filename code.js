@@ -128,6 +128,15 @@
   function TWCX_ensureStyles() {
     if (document.getElementById("TWCX_styles")) return;
 
+    // First, add Font Awesome CDN
+    var fontAwesomeLink = document.createElement("link");
+    fontAwesomeLink.rel = "stylesheet";
+    fontAwesomeLink.href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css";
+    fontAwesomeLink.integrity = "sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==";
+    fontAwesomeLink.crossOrigin = "anonymous";
+    fontAwesomeLink.referrerPolicy = "no-referrer";
+    (document.head || document.documentElement).appendChild(fontAwesomeLink);
+
     var css = `
 /* ========= TWCX SCOPED ROOTS ========= */
 #TWCX_overlay_root, #TWCX_chat_root { font-family: 'Inter','Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif; }
@@ -759,6 +768,10 @@
   gap: 4px;
 }
 
+#TWCX_overlay_root .lock-indicator i {
+  font-size: 0.6rem;
+}
+
 /* iPhone/mobile layout for overlay */
 @media (max-width: 768px){
   #TWCX_overlay_root{ padding: 10px; }
@@ -966,6 +979,8 @@
   border: 2px solid var(--twc-gold);
   position: relative;
   animation: pulse-gold 2s infinite;
+  font-family: 'Font Awesome 6 Free', sans-serif;
+  font-weight: 900;
 }
 
 @keyframes pulse-gold {
@@ -1106,11 +1121,17 @@
   justify-content: center;
   border-radius: 50%;
   transition: var(--transition);
+  font-family: 'Font Awesome 6 Free', sans-serif;
+  font-weight: 900;
 }
 
 #TWCX_chat_root .close-widget:hover {
   background: rgba(210, 180, 140, 0.3);
   transform: rotate(90deg);
+}
+
+#TWCX_chat_root .close-widget i {
+  font-size: 18px;
 }
 
 /* Widget Body */
@@ -1430,6 +1451,17 @@
   width: 0%;
   border-radius: 6px;
   box-shadow: 0 2px 8px rgba(184, 155, 116, 0.3);
+}
+
+/* Font Awesome icons */
+#TWCX_chat_root i {
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  font-style: normal;
+}
+
+#TWCX_chat_root .chat-toggle-btn i {
+  font-size: 22px;
 }
 
 /* Scrollbar styling for chat widget */
