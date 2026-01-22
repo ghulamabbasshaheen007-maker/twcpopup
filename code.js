@@ -1,12 +1,12 @@
 /* =========================
      TWC CONFIG (edit if needed)
   ========================== */
-  var TWCX_CUSTOM_FIELD_ID = "pMR80x1BrnpsGE0ULX6e";
+  var TWCX_CUSTOM_FIELD_ID = "FEBOI7ZLEjFVMf5O5Yad";
   var TWCX_WATCHED_VALUE = "Watched";
 
   var TWCX_API_BASE = "https://services.leadconnectorhq.com";
   var TWCX_API_VERSION = "2021-07-28";
-  var TWCX_BEARER_TOKEN = "pit-7a2aa063-5698-4490-a39c-d167acbeb4e4";
+  var TWCX_BEARER_TOKEN = "pit-97180738-816d-49f8-a6fa-0f9d9b616c72";
 
   /* =========================
      INTERNAL STATE
