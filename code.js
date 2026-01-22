@@ -1,14 +1,132 @@
-function TWCX_ensureStyles() {
-    if (document.getElementById("TWCX_styles")) return;
+/* =========================
+     TWC CONFIG (edit if needed)
+  ========================== */
+  var TWCX_CUSTOM_FIELD_ID = "pMR80x1BrnpsGE0ULX6e";
+  var TWCX_WATCHED_VALUE = "Watched";
 
-    // First, add Font Awesome CDN
-    var fontAwesomeLink = document.createElement("link");
-    fontAwesomeLink.rel = "stylesheet";
-    fontAwesomeLink.href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css";
-    fontAwesomeLink.integrity = "sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==";
-    fontAwesomeLink.crossOrigin = "anonymous";
-    fontAwesomeLink.referrerPolicy = "no-referrer";
-    (document.head || document.documentElement).appendChild(fontAwesomeLink);
+  var TWCX_API_BASE = "https://services.leadconnectorhq.com";
+  var TWCX_API_VERSION = "2021-07-28";
+  var TWCX_BEARER_TOKEN = "pit-7a2aa063-5698-4490-a39c-d167acbeb4e4";
+
+  /* =========================
+     INTERNAL STATE
+  ========================== */
+  var TWCX_hasInitialized = false;
+  var TWCX_trackerInstance = null;
+
+  function TWCX_log(msg) {
+    try {
+      console.log("[TWCX]", msg);
+    } catch (e) {}
+  }
+
+  /* =========================
+     UID FETCH (localStorage)
+  ========================== */
+  function TWCX_getUidFromLocalStorage() {
+    var prefix = "firebase:authUser:";
+    var i, k, raw, obj;
+
+    try {
+      for (i = 0; i < localStorage.length; i++) {
+        k = localStorage.key(i);
+        if (!k || k.indexOf(prefix) !== 0) continue;
+
+        raw = localStorage.getItem(k);
+        if (!raw) continue;
+
+        try {
+          obj = JSON.parse(raw);
+          if (obj && obj.uid) return String(obj.uid).trim();
+        } catch (parseErr) {}
+      }
+    } catch (storageErr) {}
+
+    return null;
+  }
+
+  /* =========================
+     API CALLS
+  ========================== */
+  function TWCX_apiGetContact(uid) {
+    return fetch(TWCX_API_BASE + "/contacts/" + encodeURIComponent(uid), {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Version: TWCX_API_VERSION,
+        Authorization: "Bearer " + TWCX_BEARER_TOKEN,
+      },
+    }).then(function (res) {
+      if (!res.ok) {
+        return res.text().then(function (t) {
+          throw new Error(
+            "GET failed: " + res.status + " " + String(t || "").slice(0, 180)
+          );
+        });
+      }
+      return res.json();
+    });
+  }
+
+  function TWCX_apiPutWatched(uid) {
+    return fetch(TWCX_API_BASE + "/contacts/" + encodeURIComponent(uid), {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Version: TWCX_API_VERSION,
+        Authorization: "Bearer " + TWCX_BEARER_TOKEN,
+      },
+      body: JSON.stringify({
+        customFields: [
+          {
+            id: TWCX_CUSTOM_FIELD_ID,
+            field_value: TWCX_WATCHED_VALUE,
+          },
+        ],
+      }),
+    }).then(function (res) {
+      if (!res.ok) {
+        return res.text().then(function (t) {
+          throw new Error(
+            "PUT failed: " + res.status + " " + String(t || "").slice(0, 180)
+          );
+        });
+      }
+      return res.json();
+    });
+  }
+
+  function TWCX_getCustomFieldValue(contactResp) {
+    var fields =
+      (contactResp &&
+        contactResp.contact &&
+        contactResp.contact.customFields) ||
+      [];
+    var i, f;
+
+    for (i = 0; i < fields.length; i++) {
+      f = fields[i];
+      if (String(f.id) === String(TWCX_CUSTOM_FIELD_ID)) {
+        return f.value == null ? "" : String(f.value).trim();
+      }
+    }
+    return "";
+  }
+
+  function TWCX_isWatched(val) {
+    return (
+      String(val || "").trim().toLowerCase() ===
+      String(TWCX_WATCHED_VALUE).trim().toLowerCase()
+    );
+  }
+
+  /* =========================
+     STYLE INJECTION (SCOPED)
+     - Enhanced with your widget styles
+  ========================== */
+  function TWCX_ensureStyles() {
+    if (document.getElementById("TWCX_styles")) return;
 
     var css = `
 /* ========= TWCX SCOPED ROOTS ========= */
@@ -641,10 +759,6 @@ function TWCX_ensureStyles() {
   gap: 4px;
 }
 
-#TWCX_overlay_root .lock-indicator i {
-  font-size: 0.6rem;
-}
-
 /* iPhone/mobile layout for overlay */
 @media (max-width: 768px){
   #TWCX_overlay_root{ padding: 10px; }
@@ -992,17 +1106,11 @@ function TWCX_ensureStyles() {
   justify-content: center;
   border-radius: 50%;
   transition: var(--transition);
-  font-family: 'Font Awesome 6 Free', sans-serif;
-  font-weight: 900;
 }
 
 #TWCX_chat_root .close-widget:hover {
   background: rgba(210, 180, 140, 0.3);
   transform: rotate(90deg);
-}
-
-#TWCX_chat_root .close-widget i {
-  font-size: 18px;
 }
 
 /* Widget Body */
@@ -1324,17 +1432,6 @@ function TWCX_ensureStyles() {
   box-shadow: 0 2px 8px rgba(184, 155, 116, 0.3);
 }
 
-/* Font Awesome icons */
-#TWCX_chat_root i {
-  font-family: 'Font Awesome 6 Free';
-  font-weight: 900;
-  font-style: normal;
-}
-
-#TWCX_chat_root .chat-toggle-btn i {
-  font-size: 22px;
-}
-
 /* Scrollbar styling for chat widget */
 #TWCX_chat_root .widget-body::-webkit-scrollbar {
   width: 10px;
@@ -1454,4 +1551,827 @@ function TWCX_ensureStyles() {
     styleEl.type = "text/css";
     styleEl.appendChild(document.createTextNode(css));
     (document.head || document.documentElement).appendChild(styleEl);
+  }
+
+  /* =========================
+     ENHANCED CHAT WIDGET DOM
+  ========================== */
+  function TWCX_ensureChatRoot() {
+    if (document.getElementById("TWCX_chat_root")) return;
+
+    var root = document.createElement("div");
+    root.id = "TWCX_chat_root";
+
+    root.innerHTML = `
+      <div class="chat-widget-container" id="chatWidgetContainer" style="display:none;">
+        <!-- Success Tracker Widget (hidden by default) -->
+        <div class="tracker-widget" id="trackerWidget">
+            <div class="widget-header">
+                <div class="header-content">
+                    <h1>TWC New Member Success Tracker</h1>
+                </div>
+                <button class="close-widget" id="closeWidgetBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="widget-body">
+                <div class="widget-container">
+                    <!-- Step 1 -->
+                    <div class="step-row" data-step="1">
+                        <div class="step-header">
+                            <span class="step-number">1</span>
+                            <span class="step-title">Introduction and Quick Start</span>
+                        </div>
+                        <div class="step-content">
+                            <ul>
+                                <li>Watch The <a href="https://thewealthcreatorco.app.clientclub.net/communities/groups/the-wealth-creator/home/posts/68bb852022feb0ae2704b09a" target="_blank" class="link">Start Here Video</a></li>
+                            </ul>
+                        </div>
+                        <div class="step-time">
+                            <div class="time-badge">5 minutes</div>
+                            <div class="time-estimate">Estimated time</div>
+                            <div class="completion-status">
+                                <div class="checkbox" data-step="1"></div>
+                                <span class="status-label">Mark complete</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 2 -->
+                    <div class="step-row" data-step="2">
+                        <div class="step-header">
+                            <span class="step-number">2</span>
+                            <span class="step-title">Decide On Your Product Offer</span>
+                        </div>
+                        <div class="step-content">
+                            <p>Watch the following videos in order then follow the flow chart:</p>
+                            <ul>
+                                <li><a href="https://thewealthcreatorco.app.clientclub.net/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/3da547e8-78db-44f5-b21f-a32aba5244b8/posts/47f8eebb-636e-4490-ac4b-ebf7ca613286?source=communities&group_slug=the-wealth-creator" target="_blank" class="link">Digital & Affiliate Marketing 101</a></li>
+                                <li><a href="https://thewealthcreatorco.app.clientclub.net/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/3da547e8-78db-44f5-b21f-a32aba5244b8/posts/35a97775-c30b-4a64-9932-b46e065f59c2?source=communities&group_slug=the-wealth-creator" target="_blank" class="link">Onboarding Call - Launch Your Business</a></li>
+                                <li><a href="https://thewealthcreatorco.app.clientclub.net/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/3da547e8-78db-44f5-b21f-a32aba5244b8/posts/94a2da82-51cd-4607-a46f-dd86fa2af408?source=communities&group_slug=the-wealth-creator" target="_blank" class="link">Choose Your Path Flowchart</a></li>
+                            </ul>
+                        </div>
+                        <div class="step-time">
+                            <div class="time-badge">30 minutes</div>
+                            <div class="time-estimate">Estimated time</div>
+                            <div class="completion-status">
+                                <div class="checkbox" data-step="2"></div>
+                                <span class="status-label">Mark complete</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 3 -->
+                    <div class="step-row" data-step="3">
+                        <div class="step-header">
+                            <span class="step-number">3</span>
+                            <span class="step-title">Attend an Onboarding Call</span>
+                        </div>
+                        <div class="step-content">
+                            <ul>
+                                <li>Choose a day that works for you <a href="https://thewealthcreatorco.app.clientclub.net/communities/groups/the-wealth-creator/events" target="_blank" class="link">LINK</a></li>
+                                <li>If you cannot attend a live onboarding, complete self onboarding: <a href="https://www.loom.com/share/333c685b104d426a828c485b06dedd46" target="_blank" class="link">WATCH NOW</a></li>
+                            </ul>
+                            <div class="note">
+                                <p>If you do the self onboarding, Sign up for FIRM here: <a href="https://thewealthcreator.co/firm-page" target="_blank" class="link">https://thewealthcreator.co/firm-page</a></p>
+                                <p><span class="highlight">Discount code: Firmfree</span></p>
+                                <p>AND Complete the <a href="https://thewealthcreator.co/branding" target="_blank" class="link">BRANDING FORM</a></p>
+                            </div>
+                        </div>
+                        <div class="step-time">
+                            <div class="time-badge">30 minutes</div>
+                            <div class="time-estimate">Estimated time</div>
+                            <div class="completion-status">
+                                <div class="checkbox" data-step="3"></div>
+                                <span class="status-label">Mark complete</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Step Separator -->
+                    <div class="step-separator">
+                        <span class="step-number">→</span>
+                        <span>AFTER Onboarding</span>
+                    </div>
+                    
+                    <!-- Step 4 -->
+                    <div class="step-row" data-step="4">
+                        <div class="step-header">
+                            <span class="step-number">4</span>
+                            <span class="step-title">Create a Social Media account and Post your FIRST Post!</span>
+                        </div>
+                        <div class="step-content">
+                            <ul>
+                                <li>The <a href="https://thewealthcreatorco.app.clientclub.net/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/80ef2315-2298-42b3-9635-92fe122dc05d" target="_blank" class="link">Instagram Modules</a> will show you how to create a new account and post</li>
+                                <li>You can also access the <a href="https://thewealthcreatorco.app.clientclub.net/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/80ef2315-2298-42b3-9635-92fe122dc05d/posts/57904857-4c4f-4f93-9cab-a2f18389d523?source=communities&group_slug=the-wealth-creator" target="_blank" class="link">2 Weeks of Content Done FOR You</a> content and use it to start posting!</li>
+                            </ul>
+                        </div>
+                        <div class="step-time">
+                            <div class="time-badge">1 hour</div>
+                            <div class="time-estimate">Estimated time</div>
+                            <div class="completion-status">
+                                <div class="checkbox" data-step="4"></div>
+                                <span class="status-label">Mark complete</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 5 -->
+                    <div class="step-row" data-step="5">
+                        <div class="step-header">
+                            <span class="step-number">5</span>
+                            <span class="step-title">YOUR Business is Delivered</span>
+                        </div>
+                        <div class="step-content">
+                            <p>I got my <span class="highlight">"Congrats!! Your business is ready!"</span> email with my links - <strong>now what??</strong></p>
+                            <ul>
+                                <li>Watch this <a href="https://www.loom.com/share/730a88aad18e4fe88dfd839ff85fba46" target="_blank" class="link">Next steps video HERE</a></li>
+                            </ul>
+                            <div class="note">
+                                <p>If your business is NOT delivered within 3 business days AFTER attending an Onboarding call and completing BOTH <a href="https://thewealthcreator.co/firm-page" target="_blank" class="link">FIRM sign up</a> and <a href="https://thewealthcreator.co/branding" target="_blank" class="link">Branding Form</a>, Please email us at <a href="mailto:support@thecreatorsco.biz" class="link">support@thecreatorsco.biz</a></p>
+                            </div>
+                        </div>
+                        <div class="step-time">
+                            <div class="time-badge">5 minutes</div>
+                            <div class="time-estimate">Estimated time</div>
+                            <div class="completion-status">
+                                <div class="checkbox" data-step="5"></div>
+                                <span class="status-label">Mark complete</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 6 -->
+                    <div class="step-row" data-step="6">
+                        <div class="step-header">
+                            <span class="step-number">6</span>
+                            <span class="step-title">Continue Learning</span>
+                        </div>
+                        <div class="step-content">
+                            <ul>
+                                <li>First watch The <a href="https://thewealthcreatorco.app.clientclub.net/communities/groups/the-wealth-creator/learning" target="_blank" class="link">code modules</a> that apply to you</li>
+                                <li>Then watch the <a href="https://thewealthcreatorco.app.clientclub.net/communities/groups/the-wealth-creator/learning" target="_blank" class="link">wealth creator modules</a> and start learning more advanced training that apply to you and your business.</li>
+                            </ul>
+                        </div>
+                        <div class="step-time">
+                            <div class="time-badge">2 hours</div>
+                            <div class="time-estimate">Estimated time</div>
+                            <div class="completion-status">
+                                <div class="checkbox" data-step="6"></div>
+                                <span class="status-label">Mark complete</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 7 -->
+                    <div class="step-row" data-step="7">
+                        <div class="step-header">
+                            <span class="step-number">7</span>
+                            <span class="step-title">Attend 3 Mentorship Calls</span>
+                        </div>
+                        <div class="step-content">
+                            <p>Hop on our <a href="https://thewealthcreatorco.app.clientclub.net/communities/groups/the-wealth-creator/events" target="_blank" class="link">mentorship calls</a> every Tuesday and Thursday at 12 pm cst, 1 pm est. OR Watch <a href="https://thewealthcreatorco.app.clientclub.net/communities/groups/the-wealth-creator/channels/Past-Coaching-Calls-8cT3N" target="_blank" class="link">Mentorship Call Recordings</a></p>
+                            <ul>
+                                <li>Mentorship Call 1</li>
+                                <li>Mentorship Call 2</li>
+                                <li>Mentorship Call 3</li>
+                            </ul>
+                        </div>
+                        <div class="step-time">
+                            <div class="time-badge">3 hours</div>
+                            <div class="time-estimate">Estimated time</div>
+                            <div class="completion-status">
+                                <div class="checkbox" data-step="7"></div>
+                                <span class="status-label">Mark complete</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Footer -->
+                    <div class="widget-footer">
+                        <a href="mailto:support@thecreatorsco.biz">
+                            <i class="fas fa-envelope"></i> Please contact support@thecreatorsco.biz with any questions, concerns, etc!
+                        </a>
+                        <div class="progress-container">
+                            <div class="progress-text">Overall Progress: <span id="progressText">0/7</span> steps completed</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progressBar"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Chat Toggle Button -->
+        <button class="chat-toggle-btn" id="chatToggleBtn">
+            <i class="fas fa-tasks"></i>
+            <span class="badge" id="notificationBadge" style="display: none;">!</span>
+        </button>
+    </div>
+    `;
+
+    document.body.appendChild(root);
+  }
+
+  /* =========================
+     ENHANCED WIDGET FIX HELPERS
+  ========================== */
+  function TWCX_widgetGetCompletedSet() {
+    var arr;
+    try {
+      arr = JSON.parse(localStorage.getItem("twcCompletedSteps")) || [];
+    } catch (e) {
+      arr = [];
+    }
+    var out = {};
+    for (var i = 0; i < arr.length; i++) out[String(arr[i])] = true;
+    return out;
+  }
+
+  function TWCX_widgetSaveCompletedSet(setObj) {
+    var keys = [];
+    for (var k in setObj) {
+      if (Object.prototype.hasOwnProperty.call(setObj, k) && setObj[k]) keys.push(String(k));
+    }
+    keys.sort(function (a, b) { return parseInt(a, 10) - parseInt(b, 10); });
+    localStorage.setItem("twcCompletedSteps", JSON.stringify(keys));
+  }
+
+  function TWCX_widgetRender() {
+    var root = document.getElementById("TWCX_chat_root");
+    if (!root) return;
+
+    var checkboxes = root.querySelectorAll('.checkbox[data-step]');
+    var totalSteps = checkboxes.length || 7;
+
+    var completed = TWCX_widgetGetCompletedSet();
+    var completedCount = 0;
+
+    for (var i = 0; i < checkboxes.length; i++) {
+      var cb = checkboxes[i];
+      var step = String(cb.getAttribute("data-step") || "").trim();
+      var isDone = !!completed[step];
+
+      if (isDone) completedCount++;
+
+      if (isDone) cb.classList.add("checked");
+      else cb.classList.remove("checked");
+
+      var statusLabel = cb.parentNode ? cb.parentNode.querySelector(".status-label") : null;
+      if (statusLabel) statusLabel.textContent = isDone ? "Completed" : "Mark complete";
+    }
+
+    var percent = totalSteps ? Math.round((completedCount / totalSteps) * 100) : 0;
+
+    var progressBar = document.getElementById("progressBar");
+    var progressText = document.getElementById("progressText");
+    var notificationBadge = document.getElementById("notificationBadge");
+    
+    if (progressBar) progressBar.style.width = percent + "%";
+    if (progressText) progressText.textContent = completedCount + "/7";
+    
+    if (notificationBadge) {
+      if (completedCount < 7) {
+        notificationBadge.style.display = 'flex';
+        notificationBadge.textContent = '!';
+      } else {
+        notificationBadge.style.display = 'none';
+      }
+    }
+  }
+
+  function TWCX_widgetBindCheckboxesOnce() {
+    var widget = document.getElementById("trackerWidget");
+    if (!widget || widget.__twcxCheckboxBound) return;
+    widget.__twcxCheckboxBound = true;
+
+    widget.addEventListener("click", function (e) {
+      var target = e.target;
+      if (!target) return;
+
+      if (target.classList && target.classList.contains("checkbox")) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        var step = String(target.getAttribute("data-step") || "").trim();
+        if (!step) return;
+
+        var completed = TWCX_widgetGetCompletedSet();
+        completed[step] = !completed[step];
+        TWCX_widgetSaveCompletedSet(completed);
+        TWCX_widgetRender();
+      }
+    }, true);
+
+    widget.addEventListener("keydown", function (e) {
+      var target = e.target;
+      if (!target || !target.classList || !target.classList.contains("checkbox")) return;
+
+      if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+        e.preventDefault();
+        e.stopPropagation();
+
+        var step = String(target.getAttribute("data-step") || "").trim();
+        if (!step) return;
+
+        var completed = TWCX_widgetGetCompletedSet();
+        completed[step] = !completed[step];
+        TWCX_widgetSaveCompletedSet(completed);
+        TWCX_widgetRender();
+      }
+    }, true);
+
+    window.addEventListener("storage", function (ev) {
+      if (ev && (ev.key === "twcCompletedSteps" || ev.key === "twcVideoProgress")) {
+        TWCX_widgetRender();
+      }
+    });
+  }
+
+  function TWCX_initChatWidgetInteractions() {
+    var toggleBtn = document.getElementById("chatToggleBtn");
+    var widget = document.getElementById("trackerWidget");
+    var closeBtn = document.getElementById("closeWidgetBtn");
+    var notificationBadge = document.getElementById("notificationBadge");
+
+    if (toggleBtn && widget && !toggleBtn.__twcxBound) {
+      toggleBtn.__twcxBound = true;
+      toggleBtn.addEventListener("click", function () {
+        widget.classList.toggle("active");
+        toggleBtn.classList.toggle("active");
+        
+        if (widget.classList.contains("active")) {
+          TWCX_widgetRender();
+          if (notificationBadge) notificationBadge.style.display = 'none';
+        } else {
+          var completed = TWCX_widgetGetCompletedSet();
+          var completedCount = Object.keys(completed).length;
+          if (notificationBadge && completedCount < 7) {
+            setTimeout(function() {
+              notificationBadge.style.display = 'flex';
+            }, 500);
+          }
+        }
+      });
+    }
+    
+    if (closeBtn && widget && !closeBtn.__twcxBound) {
+      closeBtn.__twcxBound = true;
+      closeBtn.addEventListener("click", function () {
+        widget.classList.remove("active");
+        toggleBtn.classList.remove("active");
+        
+        var completed = TWCX_widgetGetCompletedSet();
+        var completedCount = Object.keys(completed).length;
+        if (notificationBadge && completedCount < 7) {
+          setTimeout(function() {
+            notificationBadge.style.display = 'flex';
+          }, 500);
+        }
+      });
+    }
+    
+    document.addEventListener('click', function(event) {
+      var widget = document.getElementById("trackerWidget");
+      var toggleBtn = document.getElementById("chatToggleBtn");
+      var notificationBadge = document.getElementById("notificationBadge");
+      
+      if (!widget || !toggleBtn) return;
+      
+      var isClickInsideWidget = widget.contains(event.target);
+      var isClickOnToggleBtn = toggleBtn.contains(event.target);
+      
+      if (widget.classList.contains("active") && 
+          !isClickInsideWidget && 
+          !isClickOnToggleBtn &&
+          window.innerWidth <= 900) {
+        
+        widget.classList.remove("active");
+        toggleBtn.classList.remove("active");
+        
+        var completed = TWCX_widgetGetCompletedSet();
+        var completedCount = Object.keys(completed).length;
+        if (notificationBadge && completedCount < 7) {
+          setTimeout(function() {
+            notificationBadge.style.display = 'flex';
+          }, 500);
+        }
+      }
+    });
+  }
+
+  function TWCX_showChatWidgetOnly() {
+    TWCX_ensureChatRoot();
+
+    var container = document.getElementById("chatWidgetContainer");
+    if (container) container.style.display = "block";
+
+    TWCX_initChatWidgetInteractions();
+    TWCX_widgetBindCheckboxesOnce();
+    TWCX_widgetRender();
+  }
+
+  /* =========================
+     MISSION ACCOMPLISHED MODAL
+  ========================== */
+  function TWCX_showMissionAccomplished(onDone) {
+    var existing = document.getElementById("TWCX_mission_modal");
+    if (existing) {
+      try {
+        existing.remove();
+      } catch (e) {}
+    }
+
+    var modal = document.createElement("div");
+    modal.id = "TWCX_mission_modal";
+
+    var content = document.createElement("div");
+    content.className = "congratulations-modal-content";
+    content.innerHTML =
+      '<div style="font-size:4rem;margin-bottom:25px;filter:drop-shadow(0 5px 15px rgba(0,0,0,0.2));">🏆</div>' +
+      '<h2 style="color:var(--twc-black);margin:0 0 20px 0;font-size:1.8rem;font-weight:800;letter-spacing:-0.5px;">Mission Accomplished!</h2>' +
+      '<p style="color:var(--twc-text);margin:0 0 30px 0;line-height:1.7;font-size:1.1rem;">' +
+      "You've successfully completed the Community Intro<br><br>" +
+      'Your next adventure begins with the <strong style="color: var(--twc-gold-dark);">TWC New Member Success Tracker</strong> which will guide you on the exact steps you need to have your business built and start seeing results fast!' +
+      "</p>" +
+      '<button id="continueToChecklist" type="button">Continue to Tracker →</button>';
+
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+
+    setTimeout(function () {
+      modal.style.opacity = "1";
+    }, 10);
+
+    function closeIt() {
+      modal.style.opacity = "0";
+      setTimeout(function () {
+        try {
+          modal.remove();
+        } catch (e) {}
+        if (typeof onDone === "function") onDone();
+      }, 300);
+    }
+
+    var btn = content.querySelector("#continueToChecklist");
+    if (btn) btn.addEventListener("click", closeIt);
+
+    modal.addEventListener("click", function (e) {
+      if (e.target === modal) closeIt();
+    });
+  }
+
+  /* =========================
+     OVERLAY ROOT (FIRST POPUP)
+  ========================== */
+  function TWCX_createOverlayRootIfMissing() {
+    if (document.getElementById("TWCX_overlay_root")) return;
+
+    var root = document.createElement("div");
+    root.id = "TWCX_overlay_root";
+
+    root.innerHTML = `
+      <div class="bg-overlay"></div>
+      <div id="twc-tracker-widget"></div>
+    `;
+
+    document.body.appendChild(root);
+  }
+
+  function TWCX_removeOverlayRoot() {
+    var root = document.getElementById("TWCX_overlay_root");
+    if (root) {
+      try {
+        root.remove();
+      } catch (e) {}
+    }
+  }
+
+  /* =========================
+     ENHANCED MAIN TRACKER CLASS
+  ========================== */
+  function TWCTracker() {
+    this.currentStep = 1;
+    this.totalSteps = 7;
+    this.videoProgress = JSON.parse(localStorage.getItem("twcVideoProgress")) || {};
+    this.completedSteps = new Set(
+      JSON.parse(localStorage.getItem("twcCompletedSteps")) || []
+    );
+
+    this.steps = [
+      { title: "Introduction & Quick Start", video: "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ec82b156e0a73e0ee9321.mp4", hasVideo: true },
+      { title: "Your Investment", video: "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ec82ec7f17f7304d24b48.mp4", hasVideo: true },
+      { title: "Your First 48 Hours", video: "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ecd64eecbfa6d734ad1da.mp4", hasVideo: true },
+      { title: "TWC Community & Training", video: "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ecd70d4fb906bf95c4d1a.mp4", hasVideo: true },
+      { title: "Your Role VS Our Role", video: "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ed3268ec5c94bb3d29f3a.mp4", hasVideo: true },
+      { title: "Next Steps", video: "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696ed326acaab06b41a46e1e.mp4", hasVideo: true },
+      { title: "Start Here", video: "https://storage.googleapis.com/msgsndr/Tu9uF1zIX4jfmQ8VZzYg/media/696fd50572b8e1ce031c6edc.mp4", hasVideo: true },
+    ];
+
+    this.initializeProgress();
+    this.render();
+  }
+
+  TWCTracker.prototype.initializeProgress = function () {
+    var i;
+    for (i = 1; i <= this.totalSteps; i++) {
+      if (!this.videoProgress[i]) this.videoProgress[i] = { progress: 0 };
+    }
+  };
+
+  TWCTracker.prototype.calculateTotalProgress = function () {
+    var total = 0;
+    var i;
+    for (i = 1; i <= this.totalSteps; i++) {
+      total += this.videoProgress[i].progress || 0;
+    }
+    return Math.round(total / this.totalSteps);
+  };
+
+  TWCTracker.prototype.updateProgress = function (stepIndex, p) {
+    var stepKey = stepIndex + 1;
+    var progress = Math.min(Math.round(p), 100);
+
+    if (progress > (this.videoProgress[stepKey].progress || 0)) {
+      this.videoProgress[stepKey].progress = progress;
+      localStorage.setItem("twcVideoProgress", JSON.stringify(this.videoProgress));
+
+      if (progress === 100) {
+        this.completedSteps.add(String(stepKey));
+        localStorage.setItem(
+          "twcCompletedSteps",
+          JSON.stringify(Array.from(this.completedSteps))
+        );
+      }
+
+      this.refreshUIOnly();
+      try { TWCX_widgetRender(); } catch (e) {}
+    }
+  };
+
+  TWCTracker.prototype.refreshUIOnly = function () {
+    var total = this.calculateTotalProgress();
+
+    var mainBar = document.getElementById("main-bar-fill");
+    var mainText = document.getElementById("main-percent-text");
+    if (mainBar) mainBar.style.width = total + "%";
+    if (mainText) mainText.textContent = total + "% Complete";
+    
+    var i;
+    for (i = 1; i <= this.totalSteps; i++) {
+      var fill = document.getElementById("step-fill-" + i);
+      var percentText = document.getElementById("step-percent-" + i);
+      var progress = this.videoProgress[i].progress;
+      
+      if (fill) {
+        fill.style.width = progress + "%";
+        if (percentText) {
+          percentText.textContent = progress + "%";
+          if (progress > 40) {
+            percentText.classList.add("inside-fill");
+          } else {
+            percentText.classList.remove("inside-fill");
+          }
+        }
+      }
+    }
+  };
+
+  TWCTracker.prototype.goToStep = function (stepNum) {
+    if (stepNum > 1) {
+      var prevStepKey = stepNum - 1;
+      var prevStepProgress = (this.videoProgress[prevStepKey] || {}).progress || 0;
+      if (prevStepProgress < 100) {
+        this.showLockMessage(stepNum);
+        return;
+      }
+    }
+    this.currentStep = stepNum;
+    this.render();
+    
+    var contentArea = document.querySelector('.twc-content');
+    if (contentArea) {
+      contentArea.scrollTop = 0;
+    }
+  };
+
+  TWCTracker.prototype.showLockMessage = function (stepNum) {
+    var existingLock = document.querySelector('#twc-tracker-widget .lock-overlay');
+    if (existingLock) {
+      try { existingLock.remove(); } catch (e) {}
+    }
+
+    var videoWrapper = document.querySelector('#twc-tracker-widget .video-wrapper');
+    if (!videoWrapper) return;
+
+    var lockOverlay = document.createElement('div');
+    lockOverlay.className = 'lock-overlay';
+    lockOverlay.innerHTML =
+      '<div class="lock-icon">🔒</div>' +
+      '<div class="lock-message"><strong>Complete Step ' +
+      (stepNum - 1) +
+      " first!</strong><br><br>Please watch the previous video completely (100%) before moving to Step " +
+      stepNum +
+      ".</div>";
+
+    videoWrapper.appendChild(lockOverlay);
+
+    setTimeout(function () {
+      if (lockOverlay && lockOverlay.parentNode) {
+        try { lockOverlay.remove(); } catch (e) {}
+      }
+    }, 3000);
+  };
+
+  TWCTracker.prototype.finishJourney = function () {
+    var uid = TWCX_getUidFromLocalStorage();
+    if (!uid) {
+      TWCX_log("No UID found at finishJourney. Aborting.");
+      return;
+    }
+
+    TWCX_log("Finish Journey clicked -> setting Watched via API...");
+
+    TWCX_apiPutWatched(uid)
+      .then(function () {
+        TWCX_log("Watched set successfully.");
+        TWCX_showMissionAccomplished(function () {
+          TWCX_removeOverlayRoot();
+          TWCX_showChatWidgetOnly();
+        });
+      })
+      .catch(function (err) {
+        TWCX_log("PUT error: " + (err && err.message ? err.message : err));
+      });
+  };
+
+  TWCTracker.prototype.render = function () {
+    var container = document.getElementById("twc-tracker-widget");
+    if (!container) return;
+
+    var currentData = this.steps[this.currentStep - 1];
+    var totalProgress = this.calculateTotalProgress();
+    var isLastStep = this.currentStep === this.totalSteps;
+    var isMobile = window.innerWidth <= 768;
+
+    var html =
+      '<div class="twc-header">' +
+      "<h2>TWC New Member Success Tracker</h2>" +
+      '<div class="progress-container">' +
+      '<div class="progress-text">' +
+      "<span>Step " +
+      this.currentStep +
+      "/" +
+      this.totalSteps +
+      '</span><span id="main-percent-text">' +
+      totalProgress +
+      "% Complete</span>" +
+      "</div>" +
+      '<div class="progress-bar-bg"><div id="main-bar-fill" class="progress-bar-fill" style="width:' +
+      totalProgress +
+      '%"></div></div>' +
+      "</div>" +
+      "</div>" +
+      '<div class="twc-main">' +
+      '<div class="twc-content">' +
+      '<div class="content-header"><h1>' +
+      currentData.title +
+      "</h1></div>" +
+      '<div class="video-wrapper">' +
+      (currentData.hasVideo
+        ? '<video id="main-video" controls playsinline webkit-playsinline src="' +
+          currentData.video +
+          '"></video>'
+        : '<div class="video-placeholder"><div style="font-size: 2.5rem;">✅</div><h3 style="margin-top:10px;">Ready to Complete</h3></div>') +
+      "</div>" +
+      '<div class="instruction-card">' +
+      '<h4 style="margin-bottom:8px; font-size:0.9rem;">Next Step:</h4>' +
+      '<p style="color:var(--twc-text-light); font-size:0.85rem;">Watch the video above and follow the roadmap to unlock your full potential.</p>' +
+      "</div>" +
+      "</div>" +
+      '<div class="twc-sidebar">' +
+      (!isMobile ? '<h4 style="font-size:0.75rem; color:#999; margin-bottom:15px; text-transform:uppercase; letter-spacing:0.5px;">Curriculum</h4>' : '');
+    
+    var i;
+    for (i = 0; i < this.steps.length; i++) {
+      var progress = (this.videoProgress[i + 1] || {}).progress || 0;
+      var hasEnoughSpace = progress > 40;
+      var isLocked = i > 0 && (((this.videoProgress[i] || {}).progress || 0) < 100);
+      var isCurrent = this.currentStep === i + 1;
+      
+      if (isMobile) {
+        // Mobile view - number only
+        html +=
+          '<div class="step-card ' +
+          (isCurrent ? "active " : "") +
+          (isLocked ? "locked" : "") +
+          '" ' +
+          (isLocked ? "" : 'onclick="TWCX_trackerInstance.goToStep(' + (i + 1) + ')"') +
+          ">" +
+          '<div class="step-num">' +
+          (i + 1) +
+          "</div>" +
+          "</div>";
+      } else {
+        // Desktop view - full card
+        html +=
+          '<div class="step-card ' +
+          (isCurrent ? "active " : "") +
+          (isLocked ? "locked" : "") +
+          '" ' +
+          (isLocked ? "" : 'onclick="TWCX_trackerInstance.goToStep(' + (i + 1) + ')"') +
+          ">" +
+          (isLocked ? '<div class="lock-indicator"><i class="fas fa-lock"></i></div>' : "") +
+          '<div class="step-num">' +
+          (i + 1) +
+          "</div>" +
+          '<div style="flex:1; overflow:hidden;">' +
+          '<div class="step-title">' +
+          this.steps[i].title +
+          "</div>" +
+          '<div class="step-progress-container">' +
+          '<div id="step-fill-' + (i + 1) + '" class="step-progress-fill" style="width:' + progress + '%">' +
+          (hasEnoughSpace ? '<div id="step-percent-' + (i + 1) + '" class="step-progress-text inside-fill">' + progress + '%</div>' : "") +
+          "</div>" +
+          (!hasEnoughSpace ? '<div id="step-percent-' + (i + 1) + '" class="step-progress-text">' + progress + '%</div>' : "") +
+          "</div>" +
+          "</div>" +
+          "</div>";
+      }
+    }
+
+    html +=
+      "</div>" +
+      "</div>" +
+      '<div class="twc-footer">' +
+      '<button class="btn btn-prev" type="button" ' +
+      (this.currentStep === 1 ? "disabled" : "") +
+      ' onclick="TWCX_trackerInstance.goToStep(' + (this.currentStep - 1) + ')">Back</button>' +
+      (isLastStep
+        ? '<button class="btn btn-complete" type="button" onclick="TWCX_trackerInstance.finishJourney()">Finish Journey</button>'
+        : '<button class="btn btn-next" type="button" onclick="TWCX_trackerInstance.goToStep(' + (this.currentStep + 1) + ')">Next Step</button>') +
+      "</div>";
+
+    container.innerHTML = html;
+
+    var video = document.getElementById("main-video");
+    if (video) {
+      video.ontimeupdate = function () {
+        if (!video.duration) return;
+        TWCX_trackerInstance.updateProgress(TWCX_trackerInstance.currentStep - 1, (video.currentTime / video.duration) * 100);
+      };
+      video.onended = function () {
+        TWCX_trackerInstance.updateProgress(TWCX_trackerInstance.currentStep - 1, 100);
+      };
+    } else if (!currentData.hasVideo) {
+      TWCX_trackerInstance.updateProgress(TWCX_trackerInstance.currentStep - 1, 100);
+    }
+  };
+
+  /* =========================
+     INIT FLOW
+  ========================== */
+  function TWCX_init() {
+    if (TWCX_hasInitialized) return;
+    TWCX_hasInitialized = true;
+
+    TWCX_ensureStyles();
+    TWCX_ensureChatRoot();
+
+    var uid = TWCX_getUidFromLocalStorage();
+    if (!uid) {
+      TWCX_log("UID not found. Script will not show onboarding.");
+      return;
+    }
+
+    TWCX_log("UID found: " + uid + " -> checking Watched status via API...");
+
+    TWCX_apiGetContact(uid)
+      .then(function (resp) {
+        var fieldVal = TWCX_getCustomFieldValue(resp);
+        var watched = TWCX_isWatched(fieldVal);
+
+        if (watched) {
+          TWCX_log("Watched = true -> show tracker widget bottom-right only.");
+          TWCX_showChatWidgetOnly();
+          return;
+        }
+
+        TWCX_log("Watched = false -> show onboarding popup.");
+        TWCX_createOverlayRootIfMissing();
+
+        TWCX_trackerInstance = new TWCTracker();
+        window.TWCX_tracker = TWCX_trackerInstance;
+      })
+      .catch(function (err) {
+        TWCX_log("GET error: " + (err && err.message ? err.message : err));
+      });
+  }
+
+  try {
+    TWCX_init();
+  } catch (e) {
+    TWCX_log("Init crashed: " + (e && e.message ? e.message : e));
   }
