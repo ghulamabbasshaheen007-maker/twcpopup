@@ -1619,7 +1619,7 @@ console.log("Script is working test 59")
                         </div>
                         <div class="step-content">
                             <ul>
-                                <li>Watch The <a href="https://thewealthcreatorco.app.clientclub.net/communities/groups/the-wealth-creator/home/posts/68bb852022feb0ae2704b09a" target="_blank" class="link">Start Here Video</a></li>
+                                <li>Watch The <a href="https://www.loom.com/share/5ecaccc94eea46adb3a827804054e98a" target="_blank" class="link">Start Here Video</a></li>
                             </ul>
                         </div>
                         <div class="step-time">
@@ -1641,9 +1641,9 @@ console.log("Script is working test 59")
                         <div class="step-content">
                             <p>Watch the following videos in order then follow the flow chart:</p>
                             <ul>
-                                <li><a href="https://thewealthcreatorco.app.clientclub.net/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/3da547e8-78db-44f5-b21f-a32aba5244b8/posts/47f8eebb-636e-4490-ac4b-ebf7ca613286?source=communities&group_slug=the-wealth-creator" target="_blank" class="link">Digital & Affiliate Marketing 101</a></li>
-                                <li><a href="https://thewealthcreatorco.app.clientclub.net/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/3da547e8-78db-44f5-b21f-a32aba5244b8/posts/35a97775-c30b-4a64-9932-b46e065f59c2?source=communities&group_slug=the-wealth-creator" target="_blank" class="link">Onboarding Call - Launch Your Business</a></li>
-                                <li><a href="https://thewealthcreatorco.app.clientclub.net/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/3da547e8-78db-44f5-b21f-a32aba5244b8/posts/94a2da82-51cd-4607-a46f-dd86fa2af408?source=communities&group_slug=the-wealth-creator" target="_blank" class="link">Choose Your Path Flowchart</a></li>
+                                <li><a href="https://community.thewealthcreator.co/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/3da547e8-78db-44f5-b21f-a32aba5244b8/posts/47f8eebb-636e-4490-ac4b-ebf7ca613286?source=communities&group_slug=the-wealth-creator" target="_blank" class="link">Digital & Affiliate Marketing 101</a></li>
+                                <li><a href="https://community.thewealthcreator.co/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/3da547e8-78db-44f5-b21f-a32aba5244b8/posts/35a97775-c30b-4a64-9932-b46e065f59c2?source=communities&group_slug=the-wealth-creator" target="_blank" class="link">Onboarding Call - Launch Your Business</a></li>
+                                <li><a href="https://community.thewealthcreator.co/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/3da547e8-78db-44f5-b21f-a32aba5244b8/posts/94a2da82-51cd-4607-a46f-dd86fa2af408?source=communities&group_slug=the-wealth-creator" target="_blank" class="link">Choose Your Path Flowchart</a></li>
                             </ul>
                         </div>
                         <div class="step-time">
@@ -1664,7 +1664,7 @@ console.log("Script is working test 59")
                         </div>
                         <div class="step-content">
                             <ul>
-                                <li>Choose a day that works for you <a href="https://thewealthcreatorco.app.clientclub.net/communities/groups/the-wealth-creator/events" target="_blank" class="link">LINK</a></li>
+                                <li>Choose a day that works for you <a href="https://community.thewealthcreator.co/communities/groups/the-wealth-creator/events" target="_blank" class="link">LINK</a></li>
                                 <li>If you cannot attend a live onboarding, complete self onboarding: <a href="https://www.loom.com/share/333c685b104d426a828c485b06dedd46" target="_blank" class="link">WATCH NOW</a></li>
                             </ul>
                             <div class="note">
@@ -1697,8 +1697,8 @@ console.log("Script is working test 59")
                         </div>
                         <div class="step-content">
                             <ul>
-                                <li>The <a href="https://thewealthcreatorco.app.clientclub.net/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/80ef2315-2298-42b3-9635-92fe122dc05d" target="_blank" class="link">Instagram Modules</a> will show you how to create a new account and post</li>
-                                <li>You can also access the <a href="https://thewealthcreatorco.app.clientclub.net/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/80ef2315-2298-42b3-9635-92fe122dc05d/posts/57904857-4c4f-4f93-9cab-a2f18389d523?source=communities&group_slug=the-wealth-creator" target="_blank" class="link">2 Weeks of Content Done FOR You</a> content and use it to start posting!</li>
+                                <li>The <a href="https://community.thewealthcreator.co/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/80ef2315-2298-42b3-9635-92fe122dc05d?source=communities&group_slug=the-wealth-creator" target="_blank" class="link">Instagram Modules</a> will show you how to create a new account and post</li>
+                                <li>You can also access the <a href="https://community.thewealthcreator.co/courses/products/e2c48925-2b1e-401e-887d-1495bdb66dda/categories/80ef2315-2298-42b3-9635-92fe122dc05d/posts/57904857-4c4f-4f93-9cab-a2f18389d523?source=communities&group_slug=the-wealth-creator" target="_blank" class="link">2 Weeks of Content Done FOR You</a> content and use it to start posting!</li>
                             </ul>
                         </div>
                         <div class="step-time">
@@ -1744,8 +1744,8 @@ console.log("Script is working test 59")
                         </div>
                         <div class="step-content">
                             <ul>
-                                <li>First watch The <a href="https://thewealthcreatorco.app.clientclub.net/communities/groups/the-wealth-creator/learning" target="_blank" class="link">code modules</a> that apply to you</li>
-                                <li>Then watch the <a href="https://thewealthcreatorco.app.clientclub.net/communities/groups/the-wealth-creator/learning" target="_blank" class="link">wealth creator modules</a> and start learning more advanced training that apply to you and your business.</li>
+                                <li>First watch The <a href="https://community.thewealthcreator.co/communities/groups/the-wealth-creator/learning" target="_blank" class="link">code modules</a> that apply to you</li>
+                                <li>Then watch the <a href="https://community.thewealthcreator.co/communities/groups/the-wealth-creator/learning" target="_blank" class="link">wealth creator modules</a> and start learning more advanced training that apply to you and your business.</li>
                             </ul>
                         </div>
                         <div class="step-time">
@@ -1765,7 +1765,7 @@ console.log("Script is working test 59")
                             <span class="step-title">Attend 3 Mentorship Calls</span>
                         </div>
                         <div class="step-content">
-                            <p>Hop on our <a href="https://thewealthcreatorco.app.clientclub.net/communities/groups/the-wealth-creator/events" target="_blank" class="link">mentorship calls</a> every Tuesday and Thursday at 12 pm cst, 1 pm est. OR Watch <a href="https://thewealthcreatorco.app.clientclub.net/communities/groups/the-wealth-creator/channels/Past-Coaching-Calls-8cT3N" target="_blank" class="link">Mentorship Call Recordings</a></p>
+                            <p>Hop on our <a href="https://community.thewealthcreator.co/communities/groups/the-wealth-creator/events" target="_blank" class="link">mentorship calls</a> every Tuesday and Thursday at 12 pm cst, 1 pm est. OR Watch <a href="https://community.thewealthcreator.co/communities/groups/the-wealth-creator/channels/Past-Coaching-Calls-8cT3N" target="_blank" class="link">Mentorship Call Recordings</a></p>
                             <ul>
                                 <li>Mentorship Call 1</li>
                                 <li>Mentorship Call 2</li>
