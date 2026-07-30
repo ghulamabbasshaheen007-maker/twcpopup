@@ -1,4 +1,4 @@
-console.log("Script is working test 59")
+console.log("Script is working test 60")
 
 /* =========================
      TWC CONFIG (edit if needed)
@@ -15,6 +15,7 @@ console.log("Script is working test 59")
   ========================== */
   var TWCX_hasInitialized = false;
   var TWCX_trackerInstance = null;
+  var TWCX_resolvedContactId = null;
 
   function TWCX_log(msg) {
     try {
@@ -23,7 +24,8 @@ console.log("Script is working test 59")
   }
 
   /* =========================
-     UID FETCH (localStorage)
+     CONTACT ID RESOLUTION
+     Order: firebase uid -> event.contactId -> contactId inside event.token JWT
   ========================== */
   function TWCX_getUidFromLocalStorage() {
     var prefix = "firebase:authUser:";
@@ -45,6 +47,115 @@ console.log("Script is working test 59")
     } catch (storageErr) {}
 
     return null;
+  }
+
+  function TWCX_safeParse(raw) {
+    var out = raw;
+    var i;
+    for (i = 0; i < 3; i++) {
+      if (typeof out !== "string") break;
+      try {
+        out = JSON.parse(out);
+      } catch (e) {
+        break;
+      }
+    }
+    return out && typeof out === "object" ? out : null;
+  }
+
+  function TWCX_decodeJwtPayload(token) {
+    try {
+      var parts = String(token).split(".");
+      if (parts.length < 2) return null;
+
+      var b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+      while (b64.length % 4) b64 += "=";
+
+      return JSON.parse(atob(b64));
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /* Reads the portal "event" object (loginSuccessful payload) */
+  function TWCX_getEventObject() {
+    var i, k, obj;
+
+    try {
+      obj = TWCX_safeParse(localStorage.getItem("event"));
+      if (obj && (obj.contactId || obj.token)) return obj;
+    } catch (e) {}
+
+    try {
+      for (i = 0; i < localStorage.length; i++) {
+        k = localStorage.key(i);
+        if (!k || String(k).toLowerCase().indexOf("event") === -1) continue;
+
+        obj = TWCX_safeParse(localStorage.getItem(k));
+        if (obj && (obj.contactId || obj.token)) return obj;
+      }
+    } catch (e) {}
+
+    return null;
+  }
+
+  function TWCX_collectContactIdCandidates() {
+    var list = [];
+
+    function push(v) {
+      v = v == null ? "" : String(v).trim();
+      if (v && list.indexOf(v) === -1) list.push(v);
+    }
+
+    push(TWCX_getUidFromLocalStorage());
+
+    var evt = TWCX_getEventObject();
+    if (evt) {
+      push(evt.contactId);
+
+      var payload = evt.token ? TWCX_decodeJwtPayload(evt.token) : null;
+      if (payload && payload.clientPortalMeta) {
+        push(payload.clientPortalMeta.contactId);
+      }
+    }
+
+    TWCX_log("candidates: " + JSON.stringify(list));
+    return list;
+  }
+
+  /* Tries each candidate against the API, stops on the first real contact */
+  function TWCX_resolveContact() {
+    var candidates = TWCX_collectContactIdCandidates();
+
+    if (!candidates.length) {
+      return Promise.reject(new Error("No contact id found in localStorage"));
+    }
+
+    var idx = 0;
+
+    function attempt() {
+      if (idx >= candidates.length) {
+        return Promise.reject(new Error("All contact id candidates failed"));
+      }
+
+      var id = candidates[idx++];
+
+      return TWCX_apiGetContact(id)
+        .then(function (resp) {
+          if (!resp || !resp.contact) throw new Error("Contact not found in response");
+          TWCX_resolvedContactId = id;
+          TWCX_log("resolved contact id: " + id);
+          return resp;
+        })
+        .catch(function (err) {
+          TWCX_log(
+            "candidate failed (" + id + "): " + (err && err.message ? err.message : err)
+          );
+          return attempt();
+        });
+    }
+
+    return attempt();
   }
 
   /* =========================
@@ -2220,13 +2331,13 @@ console.log("Script is working test 59")
   };
 
   TWCTracker.prototype.finishJourney = function () {
-    var uid = TWCX_getUidFromLocalStorage();
+    var uid = TWCX_resolvedContactId || TWCX_getUidFromLocalStorage();
     if (!uid) {
-      TWCX_log("No UID found at finishJourney. Aborting.");
+      TWCX_log("No contact id available at finishJourney. Aborting.");
       return;
     }
 
-    TWCX_log("Finish Journey clicked -> setting Watched via API...");
+    TWCX_log("Finish Journey clicked -> setting Watched via API for " + uid);
 
     TWCX_apiPutWatched(uid)
       .then(function () {
@@ -2374,15 +2485,7 @@ console.log("Script is working test 59")
     TWCX_ensureStyles();
     TWCX_ensureChatRoot();
 
-    var uid = TWCX_getUidFromLocalStorage();
-    if (!uid) {
-      TWCX_log("UID not found. Script will not show onboarding.");
-      return;
-    }
-
-    TWCX_log("UID found: " + uid + " -> checking Watched status via API...");
-
-    TWCX_apiGetContact(uid)
+    TWCX_resolveContact()
       .then(function (resp) {
         var fieldVal = TWCX_getCustomFieldValue(resp);
         var watched = TWCX_isWatched(fieldVal);
@@ -2400,7 +2503,7 @@ console.log("Script is working test 59")
         window.TWCX_tracker = TWCX_trackerInstance;
       })
       .catch(function (err) {
-        TWCX_log("GET error: " + (err && err.message ? err.message : err));
+        TWCX_log("Resolve error: " + (err && err.message ? err.message : err));
       });
   }
 
