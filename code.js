@@ -8,7 +8,7 @@ console.log("Script is working test 61")
 
   var TWCX_API_BASE = "https://services.leadconnectorhq.com";
   var TWCX_API_VERSION = "2021-07-28";
-  var TWCX_BEARER_TOKEN = "pit-97180738-816d-49f8-a6fa-0f9d9b616c72";
+  var TWCX_BEARER_TOKEN = "pit-us-46335516-7b83-4341-91a9-96dc86b6c9ab";
 
   /* Percentage of a video that counts as "watched". Browsers rarely fire a
      timeupdate at exactly 100, so 95 plus the ended event is the reliable pair. */
