@@ -1,4 +1,4 @@
-console.log("[TWCX] Compass secure widget v1.1 loaded")
+console.log("Script is working test 61")
 
 /* =========================
      TWC CONFIG (edit if needed)
@@ -6,12 +6,9 @@ console.log("[TWCX] Compass secure widget v1.1 loaded")
   var TWCX_CUSTOM_FIELD_ID = "FEBOI7ZLEjFVMf5O5Yad";
   var TWCX_WATCHED_VALUE = "Watched";
 
-  // Public Cloudflare Worker URL ONLY. Never add a GHL API token here.
-  // Replace this one URL with your own *.workers.dev URL.
-  var TWCX_WORKER_URL =
-    (window.TWCX_CONFIG && window.TWCX_CONFIG.workerUrl) ||
-    "https://twc-secure-api.ghulamabbasshaheen007.workers.dev";
-  var TWCX_MAX_INIT_ATTEMPTS = 6;
+  var TWCX_API_BASE = "https://services.leadconnectorhq.com";
+  var TWCX_API_VERSION = "2021-07-28";
+  var TWCX_BEARER_TOKEN = "pit-97180738-816d-49f8-a6fa-0f9d9b616c72";
 
   /* Percentage of a video that counts as "watched". Browsers rarely fire a
      timeupdate at exactly 100, so 95 plus the ended event is the reliable pair. */
@@ -27,12 +24,6 @@ console.log("[TWCX] Compass secure widget v1.1 loaded")
   ========================== */
   var TWCX_hasInitialized = false;
   var TWCX_trackerInstance = null;
-  var TWCX_isInitializing = false;
-  var TWCX_initAttemptCount = 0;
-  var TWCX_initTimer = null;
-  var TWCX_currentMemberKey = null;
-  var TWCX_requestGeneration = 0;
-  var TWCX_portalMemberHint = null; // UI hint only, never authorization.
   var TWCX_resolvedContactId = null;
 
   function TWCX_log(msg) {
@@ -85,101 +76,190 @@ console.log("[TWCX] Compass secure widget v1.1 loaded")
   }
 
   /* =========================
-     SECURE CONTACT RESOLUTION (COMPASS)
-     =========================
-     No private GHL API token and no portal JWT are stored in this file.
-     The backend MUST verify the current member session independently.
-     A contactId in a browser response is NOT proof of authorization.
-  */
-  function TWCX_backendReady() {
-    return /^https:\/\/[^/]+/.test(TWCX_WORKER_URL) &&
-      TWCX_WORKER_URL.indexOf("YOUR-WORKER") === -1;
+     CONTACT ID RESOLUTION
+     Order: firebase uid -> event.contactId -> contactId inside event.token JWT
+  ========================== */
+  function TWCX_getUidFromLocalStorage() {
+    var prefix = "firebase:authUser:";
+    var i, k, raw, obj;
+
+    try {
+      for (i = 0; i < localStorage.length; i++) {
+        k = localStorage.key(i);
+        if (!k || k.indexOf(prefix) !== 0) continue;
+
+        raw = localStorage.getItem(k);
+        if (!raw) continue;
+
+        try {
+          obj = JSON.parse(raw);
+          if (obj && obj.uid) return String(obj.uid).trim();
+        } catch (parseErr) {}
+      }
+    } catch (storageErr) {}
+
+    return null;
   }
 
-  function TWCX_apiRequest(path, method) {
-    if (!TWCX_backendReady()) {
-      return Promise.reject(new Error("Set TWCX_WORKER_URL in GitHub code.js"));
+  function TWCX_safeParse(raw) {
+    var out = raw;
+    var i;
+    for (i = 0; i < 3; i++) {
+      if (typeof out !== "string") break;
+      try {
+        out = JSON.parse(out);
+      } catch (e) {
+        break;
+      }
     }
-    return fetch(TWCX_WORKER_URL.replace(/\/$/, "") + path, {
-      method: method,
-      mode: "cors",
-      credentials: "include",
-      cache: "no-store",
-      headers: {
-        Accept: "application/json"
-      }
-    }).then(function (response) {
-      if (!response.ok) {
-        var error = new Error("TWC backend returned HTTP " + response.status);
-        error.status = response.status;
-        throw error;
-      }
-      return response.json();
-    });
+    return out && typeof out === "object" ? out : null;
   }
 
+  function TWCX_decodeJwtPayload(token) {
+    try {
+      var parts = String(token).split(".");
+      if (parts.length < 2) return null;
+
+      var b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+      while (b64.length % 4) b64 += "=";
+
+      return JSON.parse(atob(b64));
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /* Reads the portal "event" object (loginSuccessful payload) */
+  function TWCX_getEventObject() {
+    var i, k, obj;
+
+    try {
+      obj = TWCX_safeParse(localStorage.getItem("event"));
+      if (obj && (obj.contactId || obj.token)) return obj;
+    } catch (e) {}
+
+    try {
+      for (i = 0; i < localStorage.length; i++) {
+        k = localStorage.key(i);
+        if (!k || String(k).toLowerCase().indexOf("event") === -1) continue;
+
+        obj = TWCX_safeParse(localStorage.getItem(k));
+        if (obj && (obj.contactId || obj.token)) return obj;
+      }
+    } catch (e) {}
+
+    return null;
+  }
+
+  function TWCX_collectContactIdCandidates() {
+    var list = [];
+
+    function push(v) {
+      v = v == null ? "" : String(v).trim();
+      if (v && list.indexOf(v) === -1) list.push(v);
+    }
+
+    push(TWCX_getUidFromLocalStorage());
+
+    var evt = TWCX_getEventObject();
+    if (evt) {
+      push(evt.contactId);
+
+      var payload = evt.token ? TWCX_decodeJwtPayload(evt.token) : null;
+      if (payload && payload.clientPortalMeta) {
+        push(payload.clientPortalMeta.contactId);
+      }
+    }
+
+    TWCX_log("candidates: " + JSON.stringify(list));
+    return list;
+  }
+
+  /* Tries each candidate against the API, stops on the first real contact */
   function TWCX_resolveContact() {
-    // Worker determines whose contact it is, from a verified member session.
-    // Expected: {watched: boolean, memberKey: "stable-member-id"}
-    return TWCX_apiRequest("/api/twc/me", "GET").then(function (data) {
-      if (typeof data.watched !== "boolean") {
-        throw new Error("Backend must return {watched:boolean, memberKey:string}");
-      }
-      if (typeof data.memberKey !== "string" || !data.memberKey.trim()) {
-        throw new Error("Backend did not return a memberKey for progress separation");
-      }
-      return data;
-    });
-  }
+    var candidates = TWCX_collectContactIdCandidates();
 
-  function TWCX_apiPutWatched() {
-    // No contact ID or user-controlled field is sent to the Worker.
-    return TWCX_apiRequest("/api/twc/complete", "POST").then(function (data) {
-      if (!data || data.watched !== true) {
-        throw new Error("Backend did not confirm Watched update");
-      }
-      return data;
-    });
-  }
-
-  function TWCX_setMemberProgressKeys(memberKey) {
-    // memberKey must be stable and derived from the verified backend member.
-    var key = encodeURIComponent(memberKey).slice(0, 200);
-    TWCX_KEY_VIDEO_PROGRESS = "twcVideoProgress:" + key;
-    TWCX_KEY_VIDEO_DONE = "twcCompletedSteps:" + key;
-    TWCX_KEY_CHECKLIST_DONE = "twcChecklistCompleted:" + key;
-  }
-
-  function TWCX_resetMemberUI() {
-    TWCX_removeOverlayRoot();
-    var modal = document.getElementById("TWCX_mission_modal");
-    if (modal) modal.remove();
-    var chat = document.getElementById("TWCX_chat_root");
-    if (chat) chat.remove();
-    TWCX_hasInitialized = false;
-    TWCX_isInitializing = false;
-    TWCX_trackerInstance = null;
-    window.TWCX_tracker = null;
-    window.TWCX_trackerInstance = null;
-  }
-
-  /* The optional loader may provide a profile hint, not an auth token.
-     This never authorizes CRM access or determines backend contact IDs. */
-  function TWCX_onPortalMember(event) {
-    var member = event && event.detail;
-    if (!member || !member.contactId) return;
-    var hintKey = String(member.locationId || "") + ":" + String(member.contactId);
-    if (TWCX_portalMemberHint === hintKey) return;
-    TWCX_portalMemberHint = hintKey;
-    // Member switched in a single-page session: re-check the backend.
-    if (TWCX_currentMemberKey) {
-      ++TWCX_requestGeneration;
-      clearTimeout(TWCX_initTimer);
-      TWCX_resetMemberUI();
-      TWCX_currentMemberKey = null;
-      TWCX_initAttemptCount = 0;
+    if (!candidates.length) {
+      return Promise.reject(new Error("No contact id found in localStorage"));
     }
-    TWCX_init();
+
+    var idx = 0;
+
+    function attempt() {
+      if (idx >= candidates.length) {
+        return Promise.reject(new Error("All contact id candidates failed"));
+      }
+
+      var id = candidates[idx++];
+
+      return TWCX_apiGetContact(id)
+        .then(function (resp) {
+          if (!resp || !resp.contact) throw new Error("Contact not found in response");
+          TWCX_resolvedContactId = id;
+          TWCX_log("resolved contact id: " + id);
+          return resp;
+        })
+        .catch(function (err) {
+          TWCX_log(
+            "candidate failed (" + id + "): " + (err && err.message ? err.message : err)
+          );
+          return attempt();
+        });
+    }
+
+    return attempt();
+  }
+
+  /* =========================
+     API CALLS
+  ========================== */
+  function TWCX_apiGetContact(uid) {
+    return fetch(TWCX_API_BASE + "/contacts/" + encodeURIComponent(uid), {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Version: TWCX_API_VERSION,
+        Authorization: "Bearer " + TWCX_BEARER_TOKEN,
+      },
+    }).then(function (res) {
+      if (!res.ok) {
+        return res.text().then(function (t) {
+          throw new Error(
+            "GET failed: " + res.status + " " + String(t || "").slice(0, 180)
+          );
+        });
+      }
+      return res.json();
+    });
+  }
+
+  function TWCX_apiPutWatched(uid) {
+    return fetch(TWCX_API_BASE + "/contacts/" + encodeURIComponent(uid), {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Version: TWCX_API_VERSION,
+        Authorization: "Bearer " + TWCX_BEARER_TOKEN,
+      },
+      body: JSON.stringify({
+        customFields: [
+          {
+            id: TWCX_CUSTOM_FIELD_ID,
+            field_value: TWCX_WATCHED_VALUE,
+          },
+        ],
+      }),
+    }).then(function (res) {
+      if (!res.ok) {
+        return res.text().then(function (t) {
+          throw new Error(
+            "PUT failed: " + res.status + " " + String(t || "").slice(0, 180)
+          );
+        });
+      }
+      return res.json();
+    });
   }
 
   function TWCX_getCustomFieldValue(contactResp) {
@@ -2184,7 +2264,13 @@ console.log("[TWCX] Compass secure widget v1.1 loaded")
   };
 
   TWCTracker.prototype.finishJourney = function (btn) {
-    if (this._finishing || !this.allComplete()) return;
+    if (this._finishing) return;
+
+    var uid = TWCX_resolvedContactId || TWCX_getUidFromLocalStorage();
+    if (!uid) {
+      TWCX_log("No contact id available at finishJourney. Aborting.");
+      return;
+    }
 
     var self = this;
     this._finishing = true;
@@ -2194,17 +2280,18 @@ console.log("[TWCX] Compass secure widget v1.1 loaded")
     }
     this.updateNavState();
 
-    TWCX_log("Finishing onboarding for verified member");
-    TWCX_apiPutWatched()
+    TWCX_log("Finish Journey clicked -> setting Watched for " + uid);
+
+    TWCX_apiPutWatched(uid)
       .then(function () {
-        TWCX_log("Watched field updated successfully");
+        TWCX_log("Watched set successfully.");
         TWCX_showMissionAccomplished(function () {
           TWCX_removeOverlayRoot();
           TWCX_showChatWidgetOnly();
         });
       })
       .catch(function (err) {
-        TWCX_log("Completion failed: " + (err && err.message ? err.message : err));
+        TWCX_log("PUT error: " + (err && err.message ? err.message : err));
         self._finishing = false;
         if (btn) {
           btn.disabled = false;
@@ -2397,87 +2484,45 @@ console.log("[TWCX] Compass secure widget v1.1 loaded")
   };
 
   /* =========================
-     COMPASS INITIALIZATION
-     ========================= */
-  function TWCX_scheduleInitRetry() {
-    if (TWCX_hasInitialized || TWCX_isInitializing ||
-        TWCX_initAttemptCount >= TWCX_MAX_INIT_ATTEMPTS) return;
-    clearTimeout(TWCX_initTimer);
-    var ms = Math.min(1500 * Math.pow(2, TWCX_initAttemptCount - 1), 12000);
-    TWCX_initTimer = setTimeout(TWCX_init, ms);
-  }
-
+     INIT FLOW
+  ========================== */
   function TWCX_init() {
-    if (TWCX_hasInitialized || TWCX_isInitializing) return;
-    if (!TWCX_backendReady()) {
-      TWCX_log("Set your Cloudflare Worker URL in TWCX_WORKER_URL");
-      return;
-    }
-    if (TWCX_initAttemptCount >= TWCX_MAX_INIT_ATTEMPTS) return;
+    if (TWCX_hasInitialized) return;
+    TWCX_hasInitialized = true;
 
-    ++TWCX_initAttemptCount;
-    TWCX_isInitializing = true;
-    var generation = ++TWCX_requestGeneration;
+    TWCX_ensureStyles();
+    TWCX_ensureChatRoot();
 
     TWCX_resolveContact()
-      .then(function (data) {
-        if (generation !== TWCX_requestGeneration) return;
-        TWCX_currentMemberKey = data.memberKey;
-        TWCX_setMemberProgressKeys(data.memberKey);
-        TWCX_ensureStyles();
-        TWCX_ensureChatRoot();
+      .then(function (resp) {
+        var watched = TWCX_isWatched(TWCX_getCustomFieldValue(resp));
 
-        if (data.watched) {
-          TWCX_log("Watched: showing checklist icon only");
-          TWCX_removeOverlayRoot();
+        if (watched) {
+          TWCX_log("Watched = true -> show tracker widget bottom right only.");
           TWCX_showChatWidgetOnly();
-        } else {
-          TWCX_log("Not Watched: showing 7-video onboarding popup");
-          TWCX_createOverlayRootIfMissing();
-          TWCX_trackerInstance = new TWCTracker();
-          window.TWCX_tracker = TWCX_trackerInstance;
-          window.TWCX_trackerInstance = TWCX_trackerInstance;
+          return;
         }
-        TWCX_hasInitialized = true;
+
+        TWCX_log("Watched = false -> show onboarding popup.");
+        TWCX_createOverlayRootIfMissing();
+
+        TWCX_trackerInstance = new TWCTracker();
+        window.TWCX_tracker = TWCX_trackerInstance;
+        window.TWCX_trackerInstance = TWCX_trackerInstance;
       })
       .catch(function (err) {
-        if (generation !== TWCX_requestGeneration) return;
-        TWCX_log("Member status unavailable: " + err.message);
-        if (err.status === 401) {
-          TWCX_log("Cloudflare has no verified member session yet; widget cannot decide Watched status.");
-        }
-        // A 401/403 is a missing/invalid verified session. Retry a few times
-        // in case the portal's authentication is still initializing.
-        TWCX_scheduleInitRetry();
-      })
-      .finally(function () {
-        if (generation === TWCX_requestGeneration) {
-          TWCX_isInitializing = false;
-          if (!TWCX_hasInitialized &&
-              TWCX_initAttemptCount < TWCX_MAX_INIT_ATTEMPTS) {
-            TWCX_scheduleInitRetry();
-          }
-        }
+        TWCX_log("Resolve error: " + (err && err.message ? err.message : err));
       });
   }
 
-  window.addEventListener("TWCX:member", TWCX_onPortalMember);
-  window.addEventListener("focus", function () {
-    if (!TWCX_hasInitialized && !TWCX_isInitializing) {
-      TWCX_initAttemptCount = 0;
-      TWCX_init();
-    }
-  });
-
-  function TWCX_start() {
-    if (window.__TWCX_memberFromPortal) {
-      TWCX_onPortalMember({ detail: window.__TWCX_memberFromPortal });
-    }
-    TWCX_init();
-  }
-
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", TWCX_start, { once: true });
+    document.addEventListener("DOMContentLoaded", function () {
+      try { TWCX_init(); } catch (e) {
+        TWCX_log("Init crashed: " + (e && e.message ? e.message : e));
+      }
+    });
   } else {
-    TWCX_start();
+    try { TWCX_init(); } catch (e) {
+      TWCX_log("Init crashed: " + (e && e.message ? e.message : e));
+    }
   }
