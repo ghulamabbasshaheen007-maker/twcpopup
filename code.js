@@ -1,4 +1,4 @@
-console.log("Script is working test 62")
+console.log("Script is working test 63")
 
 /* =========================
      TWC CONFIG (edit if needed)
@@ -14,12 +14,12 @@ console.log("Script is working test 62")
   /* Fallback only. The script reads the real location id from localStorage first. */
   var TWCX_LOCATION_ID = "RJcmGxVeUPwr9NH8XX4L";
 
-  /* Where the portal keeps the logged in member */
+  /* Pinia store id / storage key where the portal keeps the logged in member */
   var TWCX_COMMON_KEY = "common";
 
-  /* The portal is a SPA, so "common" may be written a moment after this script runs.
+  /* The portal is a SPA, so the member data may load a moment after this script runs.
      Poll for the email instead of giving up on the first read. */
-  var TWCX_EMAIL_WAIT_MS = 15000;
+  var TWCX_EMAIL_WAIT_MS = 20000;
   var TWCX_EMAIL_POLL_MS = 500;
 
   /* Percentage of a video that counts as "watched". Browsers rarely fire a
@@ -103,14 +103,99 @@ console.log("Script is working test 62")
   }
 
   /* =========================
-     PORTAL USER (from localStorage "common")
+     PORTAL USER
+     Sources, checked in this order on every poll:
+     1. Pinia store in memory (populated right after login, nothing needs to be saved)
+     2. localStorage "common"
+     3. sessionStorage "common"
   ========================== */
-  function TWCX_getCommonObject() {
+  var TWCX_vueAppCache = null;
+  var TWCX_commonSource = null;
+
+  function TWCX_findVueApp() {
+    if (TWCX_vueAppCache) return TWCX_vueAppCache;
+
+    var quick = [document.getElementById("app"), document.querySelector("[data-v-app]")];
+    var i, el, all;
+
+    for (i = 0; i < quick.length; i++) {
+      el = quick[i];
+      if (el && el.__vue_app__) {
+        TWCX_vueAppCache = el.__vue_app__;
+        return TWCX_vueAppCache;
+      }
+    }
+
+    all = document.querySelectorAll("*");
+    for (i = 0; i < all.length; i++) {
+      if (all[i].__vue_app__) {
+        TWCX_vueAppCache = all[i].__vue_app__;
+        return TWCX_vueAppCache;
+      }
+    }
+    return null;
+  }
+
+  function TWCX_getPiniaState() {
     try {
-      return TWCX_safeParse(localStorage.getItem(TWCX_COMMON_KEY));
+      var app = TWCX_findVueApp();
+      var props = app && app.config && app.config.globalProperties;
+      var pinia = props && props.$pinia;
+      return pinia && pinia.state && pinia.state.value ? pinia.state.value : null;
     } catch (e) {
       return null;
     }
+  }
+
+  function TWCX_isUsableUser(u) {
+    return !!(u && typeof u === "object" && (u.email || u.contactId));
+  }
+
+  /* Prefers the "common" store, but scans every store in case the id changes */
+  function TWCX_getCommonFromPinia() {
+    var state = TWCX_getPiniaState();
+    if (!state) return null;
+
+    if (state.common && TWCX_isUsableUser(state.common.clientPortalUserData)) {
+      return state.common;
+    }
+
+    var k;
+    for (k in state) {
+      if (!Object.prototype.hasOwnProperty.call(state, k)) continue;
+      if (state[k] && TWCX_isUsableUser(state[k].clientPortalUserData)) return state[k];
+    }
+    return null;
+  }
+
+  function TWCX_getCommonFromStorage(store) {
+    try {
+      var obj = TWCX_safeParse(store.getItem(TWCX_COMMON_KEY));
+      return obj && TWCX_isUsableUser(obj.clientPortalUserData) ? obj : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function TWCX_getCommonObject() {
+    var sources = [
+      { name: "pinia", read: TWCX_getCommonFromPinia },
+      { name: "localStorage", read: function () { return TWCX_getCommonFromStorage(window.localStorage); } },
+      { name: "sessionStorage", read: function () { return TWCX_getCommonFromStorage(window.sessionStorage); } }
+    ];
+    var i, obj;
+
+    for (i = 0; i < sources.length; i++) {
+      obj = sources[i].read();
+      if (obj) {
+        if (TWCX_commonSource !== sources[i].name) {
+          TWCX_commonSource = sources[i].name;
+          TWCX_log("portal user found in: " + TWCX_commonSource);
+        }
+        return obj;
+      }
+    }
+    return null;
   }
 
   function TWCX_getPortalUser() {
@@ -162,7 +247,7 @@ console.log("Script is working test 62")
           return;
         }
         if (Date.now() - started >= TWCX_EMAIL_WAIT_MS) {
-          reject(new Error("No email found in localStorage '" + TWCX_COMMON_KEY + "'"));
+          reject(new Error("No email found in Pinia, localStorage or sessionStorage"));
           return;
         }
         setTimeout(check, TWCX_EMAIL_POLL_MS);
