@@ -1,4 +1,4 @@
-console.log("Script is working test 63")
+console.log("Script is working test 64")
 
 /* =========================
      TWC CONFIG (edit if needed)
@@ -19,7 +19,7 @@ console.log("Script is working test 63")
 
   /* The portal is a SPA, so the member data may load a moment after this script runs.
      Poll for the email instead of giving up on the first read. */
-  var TWCX_EMAIL_WAIT_MS = 20000;
+  var TWCX_EMAIL_WAIT_MS = 45000;
   var TWCX_EMAIL_POLL_MS = 500;
 
   /* Percentage of a video that counts as "watched". Browsers rarely fire a
@@ -109,63 +109,128 @@ console.log("Script is working test 63")
      2. localStorage "common"
      3. sessionStorage "common"
   ========================== */
-  var TWCX_vueAppCache = null;
   var TWCX_commonSource = null;
 
-  function TWCX_findVueApp() {
-    if (TWCX_vueAppCache) return TWCX_vueAppCache;
-
-    var quick = [document.getElementById("app"), document.querySelector("[data-v-app]")];
-    var i, el, all;
-
-    for (i = 0; i < quick.length; i++) {
-      el = quick[i];
-      if (el && el.__vue_app__) {
-        TWCX_vueAppCache = el.__vue_app__;
-        return TWCX_vueAppCache;
-      }
-    }
-
-    all = document.querySelectorAll("*");
+  /* Every Vue app on the page. GHL can mount several, so never cache the first one. */
+  function TWCX_findVueApps() {
+    var apps = [];
+    var all = document.querySelectorAll("*");
+    var i, a;
     for (i = 0; i < all.length; i++) {
-      if (all[i].__vue_app__) {
-        TWCX_vueAppCache = all[i].__vue_app__;
-        return TWCX_vueAppCache;
-      }
+      a = all[i].__vue_app__;
+      if (a && apps.indexOf(a) === -1) apps.push(a);
     }
-    return null;
+    return apps;
   }
 
-  function TWCX_getPiniaState() {
-    try {
-      var app = TWCX_findVueApp();
-      var props = app && app.config && app.config.globalProperties;
-      var pinia = props && props.$pinia;
-      return pinia && pinia.state && pinia.state.value ? pinia.state.value : null;
-    } catch (e) {
-      return null;
+  function TWCX_getPiniaStates() {
+    var apps = TWCX_findVueApps();
+    var out = [];
+    var i, props, pinia, st;
+    for (i = 0; i < apps.length; i++) {
+      try {
+        props = apps[i].config && apps[i].config.globalProperties;
+        pinia = props && props.$pinia;
+        st = pinia && pinia.state && pinia.state.value;
+        if (st && out.indexOf(st) === -1) out.push(st);
+      } catch (e) {}
     }
+    return out;
   }
 
   function TWCX_isUsableUser(u) {
-    return !!(u && typeof u === "object" && (u.email || u.contactId));
+    return !!(
+      u &&
+      typeof u === "object" &&
+      typeof u.email === "string" &&
+      u.email.indexOf("@") > 0
+    );
   }
 
-  /* Prefers the "common" store, but scans every store in case the id changes */
-  function TWCX_getCommonFromPinia() {
-    var state = TWCX_getPiniaState();
-    if (!state) return null;
+  /* Only these key names count as "the logged in member". Arrays are skipped on purpose,
+     so another member's data (posts, comments, member lists) can never be picked by mistake. */
+  var TWCX_USER_KEYS_PRIMARY = ["clientPortalUserData"];
+  var TWCX_USER_KEYS_SECONDARY = ["currentUser", "loggedInUser", "authUser", "userData", "user", "me"];
+  var TWCX_MAX_NODES = 5000;
 
-    if (state.common && TWCX_isUsableUser(state.common.clientPortalUserData)) {
-      return state.common;
-    }
+  function TWCX_findUserDeep(root, keys) {
+    var seen = new Set();
+    var stack = [{ node: root, depth: 0 }];
+    var visited = 0;
+    var item, node, i, k, v;
 
-    var k;
-    for (k in state) {
-      if (!Object.prototype.hasOwnProperty.call(state, k)) continue;
-      if (state[k] && TWCX_isUsableUser(state[k].clientPortalUserData)) return state[k];
+    while (stack.length && visited < TWCX_MAX_NODES) {
+      item = stack.pop();
+      node = item.node;
+
+      if (!node || typeof node !== "object" || node instanceof Array) continue;
+      if (seen.has(node)) continue;
+      seen.add(node);
+      visited++;
+
+      for (i = 0; i < keys.length; i++) {
+        try {
+          v = node[keys[i]];
+          if (TWCX_isUsableUser(v)) return v;
+        } catch (e) {}
+      }
+
+      if (item.depth >= 6) continue;
+
+      for (k in node) {
+        try {
+          v = node[k];
+          if (v && typeof v === "object" && !(v instanceof Array)) {
+            stack.push({ node: v, depth: item.depth + 1 });
+          }
+        } catch (e) {}
+      }
     }
     return null;
+  }
+
+  function TWCX_getCommonFromPinia() {
+    var states = TWCX_getPiniaStates();
+    var i, user;
+
+    /* Fast path: the "common" store */
+    for (i = 0; i < states.length; i++) {
+      if (states[i].common && TWCX_isUsableUser(states[i].common.clientPortalUserData)) {
+        return states[i].common;
+      }
+    }
+
+    /* Deep search, strongest key name first */
+    var passes = [TWCX_USER_KEYS_PRIMARY, TWCX_USER_KEYS_SECONDARY];
+    var p;
+    for (p = 0; p < passes.length; p++) {
+      for (i = 0; i < states.length; i++) {
+        user = TWCX_findUserDeep(states[i], passes[p]);
+        if (user) {
+          return {
+            clientPortalUserData: user,
+            locationId: user.contactLocationId || user.locationId || null
+          };
+        }
+      }
+    }
+    return null;
+  }
+
+  function TWCX_logDiagnostics() {
+    try {
+      var apps = TWCX_findVueApps();
+      var states = TWCX_getPiniaStates();
+      var i;
+      TWCX_log("DIAG vue apps found: " + apps.length + ", pinia instances: " + states.length);
+      for (i = 0; i < states.length; i++) {
+        TWCX_log("DIAG pinia[" + i + "] stores: " + JSON.stringify(Object.keys(states[i])));
+      }
+      TWCX_log("DIAG localStorage keys: " + JSON.stringify(Object.keys(window.localStorage)));
+      TWCX_log("DIAG sessionStorage keys: " + JSON.stringify(Object.keys(window.sessionStorage)));
+    } catch (e) {
+      TWCX_log("DIAG failed: " + (e && e.message ? e.message : e));
+    }
   }
 
   function TWCX_getCommonFromStorage(store) {
@@ -247,6 +312,7 @@ console.log("Script is working test 63")
           return;
         }
         if (Date.now() - started >= TWCX_EMAIL_WAIT_MS) {
+          TWCX_logDiagnostics();
           reject(new Error("No email found in Pinia, localStorage or sessionStorage"));
           return;
         }
