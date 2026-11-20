@@ -1,4 +1,4 @@
-console.log("Script is working test 65")
+console.log("Script is working test 66")
 
 /* =========================
      TWC CONFIG (edit if needed)
@@ -16,6 +16,11 @@ console.log("Script is working test 65")
 
   /* Pinia store id / storage key where the portal keeps the logged in member */
   var TWCX_COMMON_KEY = "common";
+
+  /* Primary source, confirmed in the community app: pinia["current-user"].profile.email
+     Same Vue app on desktop and mobile, so this works on every screen size. */
+  var TWCX_PINIA_USER_STORE = "current-user";
+  var TWCX_PINIA_USER_KEY = "profile";
 
   /* The portal is a SPA, so the member data may load a moment after this script runs.
      Poll for the email instead of giving up on the first read. */
@@ -202,7 +207,20 @@ console.log("Script is working test 65")
     var states = TWCX_getPiniaStates();
     var i, user;
 
-    /* Fast path: the "common" store */
+    /* Primary: the "current-user" store's profile */
+    var store, profile;
+    for (i = 0; i < states.length; i++) {
+      store = states[i][TWCX_PINIA_USER_STORE];
+      profile = store && store[TWCX_PINIA_USER_KEY];
+      if (TWCX_isUsableUser(profile)) {
+        return {
+          clientPortalUserData: profile,
+          locationId: profile.contactLocationId || profile.locationId || null
+        };
+      }
+    }
+
+    /* Next: the "common" store (courses area) */
     for (i = 0; i < states.length; i++) {
       if (states[i].common && TWCX_isUsableUser(states[i].common.clientPortalUserData)) {
         return states[i].common;
