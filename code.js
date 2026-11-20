@@ -1,4 +1,4 @@
-console.log("Script is working test 61")
+console.log("Script is working test 62")
 
 /* =========================
      TWC CONFIG (edit if needed)
@@ -7,8 +7,20 @@ console.log("Script is working test 61")
   var TWCX_WATCHED_VALUE = "Watched";
 
   var TWCX_API_BASE = "https://services.leadconnectorhq.com";
-  var TWCX_API_VERSION = "2021-07-28";
+  var TWCX_API_VERSION = "2021-07-28";   /* used for GET and PUT /contacts/{id} */
+  var TWCX_LOOKUP_VERSION = "v3";        /* used for /contacts/lookup */
   var TWCX_BEARER_TOKEN = "pit-us-46335516-7b83-4341-91a9-96dc86b6c9ab";
+
+  /* Fallback only. The script reads the real location id from localStorage first. */
+  var TWCX_LOCATION_ID = "RJcmGxVeUPwr9NH8XX4L";
+
+  /* Where the portal keeps the logged in member */
+  var TWCX_COMMON_KEY = "common";
+
+  /* The portal is a SPA, so "common" may be written a moment after this script runs.
+     Poll for the email instead of giving up on the first read. */
+  var TWCX_EMAIL_WAIT_MS = 15000;
+  var TWCX_EMAIL_POLL_MS = 500;
 
   /* Percentage of a video that counts as "watched". Browsers rarely fire a
      timeupdate at exactly 100, so 95 plus the ended event is the reliable pair. */
@@ -75,32 +87,7 @@ console.log("Script is working test 61")
     return out;
   }
 
-  /* =========================
-     CONTACT ID RESOLUTION
-     Order: firebase uid -> event.contactId -> contactId inside event.token JWT
-  ========================== */
-  function TWCX_getUidFromLocalStorage() {
-    var prefix = "firebase:authUser:";
-    var i, k, raw, obj;
-
-    try {
-      for (i = 0; i < localStorage.length; i++) {
-        k = localStorage.key(i);
-        if (!k || k.indexOf(prefix) !== 0) continue;
-
-        raw = localStorage.getItem(k);
-        if (!raw) continue;
-
-        try {
-          obj = JSON.parse(raw);
-          if (obj && obj.uid) return String(obj.uid).trim();
-        } catch (parseErr) {}
-      }
-    } catch (storageErr) {}
-
-    return null;
-  }
-
+  /* Handles values that were JSON encoded once, twice, or not at all */
   function TWCX_safeParse(raw) {
     var out = raw;
     var i;
@@ -115,104 +102,122 @@ console.log("Script is working test 61")
     return out && typeof out === "object" ? out : null;
   }
 
-  function TWCX_decodeJwtPayload(token) {
+  /* =========================
+     PORTAL USER (from localStorage "common")
+  ========================== */
+  function TWCX_getCommonObject() {
     try {
-      var parts = String(token).split(".");
-      if (parts.length < 2) return null;
-
-      var b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-      while (b64.length % 4) b64 += "=";
-
-      return JSON.parse(atob(b64));
+      return TWCX_safeParse(localStorage.getItem(TWCX_COMMON_KEY));
     } catch (e) {
       return null;
     }
   }
 
-  /* Reads the portal "event" object (loginSuccessful payload) */
-  function TWCX_getEventObject() {
-    var i, k, obj;
+  function TWCX_getPortalUser() {
+    var common = TWCX_getCommonObject();
+    if (!common) return null;
 
-    try {
-      obj = TWCX_safeParse(localStorage.getItem("event"));
-      if (obj && (obj.contactId || obj.token)) return obj;
-    } catch (e) {}
-
-    try {
-      for (i = 0; i < localStorage.length; i++) {
-        k = localStorage.key(i);
-        if (!k || String(k).toLowerCase().indexOf("event") === -1) continue;
-
-        obj = TWCX_safeParse(localStorage.getItem(k));
-        if (obj && (obj.contactId || obj.token)) return obj;
-      }
-    } catch (e) {}
-
+    var user = common.clientPortalUserData;
+    if (user && typeof user === "object") return user;
     return null;
   }
 
-  function TWCX_collectContactIdCandidates() {
-    var list = [];
+  function TWCX_getEmail() {
+    var user = TWCX_getPortalUser();
+    var email = user && user.email ? String(user.email).trim() : "";
 
-    function push(v) {
-      v = v == null ? "" : String(v).trim();
-      if (v && list.indexOf(v) === -1) list.push(v);
-    }
-
-    push(TWCX_getUidFromLocalStorage());
-
-    var evt = TWCX_getEventObject();
-    if (evt) {
-      push(evt.contactId);
-
-      var payload = evt.token ? TWCX_decodeJwtPayload(evt.token) : null;
-      if (payload && payload.clientPortalMeta) {
-        push(payload.clientPortalMeta.contactId);
+    if (!email) {
+      var common = TWCX_getCommonObject();
+      if (common && common.contact && common.contact.email) {
+        email = String(common.contact.email).trim();
       }
     }
-
-    TWCX_log("candidates: " + JSON.stringify(list));
-    return list;
+    return email || null;
   }
 
-  /* Tries each candidate against the API, stops on the first real contact */
-  function TWCX_resolveContact() {
-    var candidates = TWCX_collectContactIdCandidates();
+  function TWCX_getLocationId() {
+    var user = TWCX_getPortalUser();
+    if (user && user.contactLocationId) return String(user.contactLocationId).trim();
 
-    if (!candidates.length) {
-      return Promise.reject(new Error("No contact id found in localStorage"));
-    }
+    var common = TWCX_getCommonObject();
+    if (common && common.locationId) return String(common.locationId).trim();
 
-    var idx = 0;
+    return TWCX_LOCATION_ID;
+  }
 
-    function attempt() {
-      if (idx >= candidates.length) {
-        return Promise.reject(new Error("All contact id candidates failed"));
+  /* Backup id, used only if the email lookup fails */
+  function TWCX_getPortalContactId() {
+    var user = TWCX_getPortalUser();
+    return user && user.contactId ? String(user.contactId).trim() : null;
+  }
+
+  function TWCX_waitForEmail() {
+    return new Promise(function (resolve, reject) {
+      var started = Date.now();
+
+      function check() {
+        var email = TWCX_getEmail();
+        if (email) {
+          resolve(email);
+          return;
+        }
+        if (Date.now() - started >= TWCX_EMAIL_WAIT_MS) {
+          reject(new Error("No email found in localStorage '" + TWCX_COMMON_KEY + "'"));
+          return;
+        }
+        setTimeout(check, TWCX_EMAIL_POLL_MS);
       }
 
-      var id = candidates[idx++];
-
-      return TWCX_apiGetContact(id)
-        .then(function (resp) {
-          if (!resp || !resp.contact) throw new Error("Contact not found in response");
-          TWCX_resolvedContactId = id;
-          TWCX_log("resolved contact id: " + id);
-          return resp;
-        })
-        .catch(function (err) {
-          TWCX_log(
-            "candidate failed (" + id + "): " + (err && err.message ? err.message : err)
-          );
-          return attempt();
-        });
-    }
-
-    return attempt();
+      check();
+    });
   }
 
   /* =========================
      API CALLS
   ========================== */
+  function TWCX_apiLookupByEmail(email, locationId) {
+    var url =
+      TWCX_API_BASE +
+      "/contacts/lookup?locationId=" + encodeURIComponent(locationId) +
+      "&email=" + encodeURIComponent(email);
+
+    return fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Version: TWCX_LOOKUP_VERSION,
+        Authorization: "Bearer " + TWCX_BEARER_TOKEN,
+      },
+    }).then(function (res) {
+      if (!res.ok) {
+        return res.text().then(function (t) {
+          throw new Error(
+            "LOOKUP failed: " + res.status + " " + String(t || "").slice(0, 180)
+          );
+        });
+      }
+      return res.json();
+    });
+  }
+
+  /* The lookup response shape can vary, so check every likely place for the contact */
+  function TWCX_extractLookupContact(resp) {
+    if (!resp || typeof resp !== "object") return null;
+
+    if (resp.contact && resp.contact.id) return resp.contact;
+
+    var lists = [resp.contacts, resp.data, resp.results];
+    var i, list;
+    for (i = 0; i < lists.length; i++) {
+      list = lists[i];
+      if (list instanceof Array && list.length && list[0] && list[0].id) return list[0];
+      if (list && typeof list === "object" && list.id) return list;
+    }
+
+    if (resp.id) return resp;
+    return null;
+  }
+
   function TWCX_apiGetContact(uid) {
     return fetch(TWCX_API_BASE + "/contacts/" + encodeURIComponent(uid), {
       method: "GET",
@@ -262,18 +267,67 @@ console.log("Script is working test 61")
     });
   }
 
+  /* =========================
+     CONTACT RESOLUTION
+     1. Read email from localStorage "common"
+     2. Look the contact up by email
+     3. If the lookup result has customFields, use it. Otherwise GET the contact by id.
+     4. If the lookup fails, fall back to the contactId stored in "common"
+  ========================== */
+  function TWCX_loadFullContact(id, maybeContact) {
+    TWCX_resolvedContactId = id;
+    TWCX_log("resolved contact id: " + id);
+
+    if (maybeContact && maybeContact.customFields instanceof Array) {
+      return Promise.resolve({ contact: maybeContact });
+    }
+
+    return TWCX_apiGetContact(id).then(function (resp) {
+      if (!resp || !resp.contact) throw new Error("Contact not found in GET response");
+      return resp;
+    });
+  }
+
+  function TWCX_resolveViaPortalContactId(reason) {
+    var fallbackId = TWCX_getPortalContactId();
+    TWCX_log("email lookup failed (" + reason + "), trying portal contactId: " + fallbackId);
+
+    if (!fallbackId) {
+      return Promise.reject(new Error("Email lookup failed and no portal contactId available"));
+    }
+    return TWCX_loadFullContact(fallbackId, null);
+  }
+
+  function TWCX_resolveContact() {
+    return TWCX_waitForEmail().then(function (email) {
+      var locationId = TWCX_getLocationId();
+      TWCX_log("looking up contact by email: " + email + " in location " + locationId);
+
+      return TWCX_apiLookupByEmail(email, locationId)
+        .then(function (resp) {
+          var contact = TWCX_extractLookupContact(resp);
+          if (!contact || !contact.id) throw new Error("No contact in lookup response");
+          return TWCX_loadFullContact(String(contact.id), contact);
+        })
+        .catch(function (err) {
+          return TWCX_resolveViaPortalContactId(err && err.message ? err.message : err);
+        });
+    });
+  }
+
   function TWCX_getCustomFieldValue(contactResp) {
     var fields =
       (contactResp &&
         contactResp.contact &&
         contactResp.contact.customFields) ||
       [];
-    var i, f;
+    var i, f, v;
 
     for (i = 0; i < fields.length; i++) {
       f = fields[i];
       if (String(f.id) === String(TWCX_CUSTOM_FIELD_ID)) {
-        return f.value == null ? "" : String(f.value).trim();
+        v = f.value != null ? f.value : f.field_value;
+        return v == null ? "" : String(v).trim();
       }
     }
     return "";
@@ -2266,7 +2320,7 @@ console.log("Script is working test 61")
   TWCTracker.prototype.finishJourney = function (btn) {
     if (this._finishing) return;
 
-    var uid = TWCX_resolvedContactId || TWCX_getUidFromLocalStorage();
+    var uid = TWCX_resolvedContactId || TWCX_getPortalContactId();
     if (!uid) {
       TWCX_log("No contact id available at finishJourney. Aborting.");
       return;
