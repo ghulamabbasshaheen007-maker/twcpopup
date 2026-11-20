@@ -1,4 +1,4 @@
-console.log("Script is working test 64")
+console.log("Script is working test 65")
 
 /* =========================
      TWC CONFIG (edit if needed)
@@ -21,6 +21,15 @@ console.log("Script is working test 64")
      Poll for the email instead of giving up on the first read. */
   var TWCX_EMAIL_WAIT_MS = 45000;
   var TWCX_EMAIL_POLL_MS = 500;
+
+  /* Last resort: open the profile menu (top right avatar) and read the email shown there.
+     Starts after Pinia and storage have failed for this long, then retries a few times. */
+  var TWCX_AVATAR_SELECTOR = "#profile-avatar-image > img";
+  var TWCX_AVATAR_FALLBACK_SELECTOR = "#profile-avatar-image";
+  var TWCX_MENU_EMAIL_SELECTOR = "#profile-menu-email";
+  var TWCX_DOM_PROBE_AFTER_MS = 2500;
+  var TWCX_DOM_PROBE_RETRY_MS = 6000;
+  var TWCX_DOM_PROBE_MAX_TRIES = 4;
 
   /* Percentage of a video that counts as "watched". Browsers rarely fire a
      timeupdate at exactly 100, so 95 plus the ended event is the reliable pair. */
@@ -301,21 +310,154 @@ console.log("Script is working test 64")
     return user && user.contactId ? String(user.contactId).trim() : null;
   }
 
+  /* =========================
+     PROFILE MENU FALLBACK
+     Clicks the avatar, reads #profile-menu-email, closes the menu.
+     The popover is hidden while probing so the member never sees it flash.
+  ========================== */
+  function TWCX_isEmail(v) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || "").trim());
+  }
+
+  function TWCX_readMenuEmail() {
+    var el = document.querySelector(TWCX_MENU_EMAIL_SELECTOR);
+    if (!el) return null;
+    var text = String(el.textContent || "").trim();
+    return TWCX_isEmail(text) ? text : null;
+  }
+
+  function TWCX_setProbeHidden(on) {
+    if (!document.getElementById("TWCX_probe_styles")) {
+      var st = document.createElement("style");
+      st.id = "TWCX_probe_styles";
+      st.appendChild(document.createTextNode(
+        "body.twcx-probing .v-binder-follower-container," +
+        "body.twcx-probing .v-binder-follower-content{" +
+        "opacity:0 !important;pointer-events:none !important;transition:none !important;}"
+      ));
+      (document.head || document.documentElement).appendChild(st);
+    }
+    if (!document.body) return;
+    if (on) document.body.classList.add("twcx-probing");
+    else document.body.classList.remove("twcx-probing");
+  }
+
+  function TWCX_isMenuOpen() {
+    var el = document.querySelector(TWCX_MENU_EMAIL_SELECTOR);
+    return !!(el && el.offsetParent !== null);
+  }
+
+  function TWCX_closeProfileMenu(trigger) {
+    var esc = { key: "Escape", code: "Escape", keyCode: 27, which: 27, bubbles: true };
+    try { document.dispatchEvent(new KeyboardEvent("keydown", esc)); } catch (e) {}
+    try { document.body.dispatchEvent(new KeyboardEvent("keydown", esc)); } catch (e) {}
+
+    /* If Escape did not close it, click the avatar again to toggle it shut */
+    setTimeout(function () {
+      if (TWCX_isMenuOpen() && trigger) {
+        try { trigger.click(); } catch (e) {}
+      }
+    }, 150);
+  }
+
+  function TWCX_probeEmailFromProfileMenu() {
+    return new Promise(function (resolve) {
+      /* Menu might already be rendered, read it without clicking anything */
+      var already = TWCX_readMenuEmail();
+      if (already) {
+        resolve(already);
+        return;
+      }
+
+      var trigger =
+        document.querySelector(TWCX_AVATAR_SELECTOR) ||
+        document.querySelector(TWCX_AVATAR_FALLBACK_SELECTOR);
+
+      if (!trigger) {
+        TWCX_log("profile avatar not on the page yet");
+        resolve(null);
+        return;
+      }
+
+      TWCX_log("opening profile menu to read email");
+      TWCX_setProbeHidden(true);
+      try { trigger.click(); } catch (e) {}
+
+      var started = Date.now();
+
+      (function waitForMenu() {
+        var email = TWCX_readMenuEmail();
+
+        if (email || Date.now() - started > 3000) {
+          TWCX_closeProfileMenu(trigger);
+          setTimeout(function () { TWCX_setProbeHidden(false); }, 400);
+          resolve(email || null);
+          return;
+        }
+        setTimeout(waitForMenu, 100);
+      })();
+    });
+  }
+
+  /* =========================
+     EMAIL WAIT LOOP
+     Every poll: Pinia -> localStorage -> sessionStorage.
+     After TWCX_DOM_PROBE_AFTER_MS with no luck: profile menu probe, retried a few times.
+  ========================== */
   function TWCX_waitForEmail() {
     return new Promise(function (resolve, reject) {
       var started = Date.now();
+      var settled = false;
+      var probeRunning = false;
+      var probeTries = 0;
+      var lastProbeAt = 0;
+
+      function finish(email, source) {
+        if (settled) return;
+        settled = true;
+        if (source) TWCX_log("email found via " + source + ": " + email);
+        resolve(email);
+      }
+
+      function maybeProbe() {
+        var now = Date.now();
+        if (probeRunning) return;
+        if (probeTries >= TWCX_DOM_PROBE_MAX_TRIES) return;
+        if (now - started < TWCX_DOM_PROBE_AFTER_MS) return;
+        if (lastProbeAt && now - lastProbeAt < TWCX_DOM_PROBE_RETRY_MS) return;
+
+        probeRunning = true;
+        probeTries++;
+        lastProbeAt = now;
+
+        TWCX_probeEmailFromProfileMenu().then(function (email) {
+          probeRunning = false;
+          if (email) finish(email, "profile menu");
+          else TWCX_log("profile menu probe " + probeTries + " found no email");
+        });
+      }
 
       function check() {
+        if (settled) return;
+
         var email = TWCX_getEmail();
         if (email) {
-          resolve(email);
+          finish(email, TWCX_commonSource || "portal state");
           return;
         }
+
         if (Date.now() - started >= TWCX_EMAIL_WAIT_MS) {
+          if (probeRunning) {
+            setTimeout(check, TWCX_EMAIL_POLL_MS);
+            return;
+          }
           TWCX_logDiagnostics();
-          reject(new Error("No email found in Pinia, localStorage or sessionStorage"));
+          settled = true;
+          reject(new Error("No email found in Pinia, storage or the profile menu"));
           return;
         }
+
+        maybeProbe();
         setTimeout(check, TWCX_EMAIL_POLL_MS);
       }
 
